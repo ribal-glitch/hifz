@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { formatDayMonth, WEEKDAYS_SHORT } from '../logic/dates';
+import { rotationInfo } from '../logic/plan';
 import { SURAS, formatDecimal, juzPages } from '../logic/quran';
 import {
   MILESTONES,
@@ -18,11 +19,11 @@ import { useStore } from '../store';
 import { Icon, Ring } from '../ui';
 import type { ReadTarget } from './Today';
 
-const SURA_LABEL: Record<SuraState, { text: string; cls: string }> = {
-  auswendig: { text: 'auswendig', cls: 'accent' },
-  dars: { text: 'im Dars', cls: 'warn' },
-  teilweise: { text: 'teilweise', cls: '' },
-  offen: { text: 'offen', cls: '' },
+const SURA_LABEL: Record<SuraState, string> = {
+  auswendig: 'auswendig',
+  dars: 'im Dars',
+  teilweise: 'teilweise',
+  offen: 'offen',
 };
 
 export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
@@ -35,6 +36,7 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
   const cons = consolidation(profile, today);
   const st = streak(profile, today);
   const cal = calendar(profile, today);
+  const rot = rotationInfo(profile, today);
   const fresh = newMilestones(profile, today);
   const next = MILESTONES.find((m) => prog.pages < pagesForMilestone(m.percent));
   const celebrated = fresh.length ? MILESTONES.find((m) => m.percent === Math.max(...fresh)) : null;
@@ -44,7 +46,9 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
     <div>
       {celebrated && (
         <section className="card celebrate">
-          <div className="eyebrow">Meilenstein erreicht</div>
+          <div className="eyebrow" style={{ color: 'var(--gold)' }}>
+            Meilenstein erreicht
+          </div>
           <div className="big" style={{ margin: '6px 0' }}>
             {celebrated.label}
           </div>
@@ -61,13 +65,13 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
         </section>
       )}
 
-      <section className="card" style={{ textAlign: 'center', paddingTop: 24 }}>
+      <section style={{ textAlign: 'center', padding: '8px 0 4px' }}>
         <div style={{ display: 'grid', placeItems: 'center' }}>
-          <Ring value={prog.pages / 604} size={220} stroke={16} label={`${formatDecimal(prog.percent)} Prozent des Qurans auswendig`}>
+          <Ring value={prog.pages / 604} size={224} stroke={9} label={`${formatDecimal(prog.percent)} Prozent des Qurans auswendig`}>
             <div>
-              <div style={{ fontSize: 44, fontWeight: 750, letterSpacing: '-0.03em', lineHeight: 1 }}>
+              <div className="serif" style={{ fontSize: 58, fontWeight: 500, lineHeight: 1 }}>
                 {formatDecimal(prog.percent)}
-                <span style={{ fontSize: 24 }}> %</span>
+                <span style={{ fontSize: 28 }}> %</span>
               </div>
               <div className="sub" style={{ marginTop: 6 }}>
                 des Qurans
@@ -75,154 +79,149 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
             </div>
           </Ring>
         </div>
-        <div style={{ marginTop: 14, fontWeight: 650, fontSize: 18 }}>
+        <div className="serif" style={{ marginTop: 14, fontSize: 22 }}>
           {prog.pages} von 604 Seiten · ca. {formatDecimal(prog.juz)} Juz
         </div>
         {next && (
-          <div className="sub" style={{ marginTop: 4 }}>
+          <div className="sub" style={{ marginTop: 2 }}>
             Noch {pagesForMilestone(next.percent) - prog.pages} Seiten bis {next.label}
           </div>
         )}
       </section>
 
-      <section className="card">
-        <div className="row" style={{ alignItems: 'stretch' }}>
-          <div className="stat">
-            <div className="n">{st}</div>
-            <div className="sub">{st === 1 ? 'Tag' : 'Tage'} am Stück</div>
+      <div className="ornament" aria-hidden="true">
+        <i />
+      </div>
+
+      <div className="stats">
+        <div>
+          <div className="n">{st}</div>
+          <div className="l">{st === 1 ? 'Tag' : 'Tage'} in Folge</div>
+        </div>
+        <div>
+          <div className="n">{doneDays}</div>
+          <div className="l">von 28 Tagen</div>
+        </div>
+        <div>
+          <div className="n">{rot.cycleDays}</div>
+          <div className="l">Tage je Durchgang</div>
+        </div>
+      </div>
+      <div className="cal" aria-label="Kalender der letzten 4 Wochen">
+        {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+          <div key={d} className="h">
+            {WEEKDAYS_SHORT[d]}
           </div>
-          <div style={{ width: 1, background: 'var(--border)' }} />
-          <div className="stat">
-            <div className="n">{doneDays}</div>
-            <div className="sub">von 28 Tagen erledigt</div>
+        ))}
+        {cal.flat().map((c) => (
+          <div
+            key={c.date}
+            className={`d ${c.state}${c.today ? ' today' : ''}`}
+            title={formatDayMonth(c.date)}
+            aria-label={`${formatDayMonth(c.date)}: ${c.state === 'complete' ? 'erledigt' : c.state === 'partial' ? 'teilweise' : 'offen'}`}
+          >
+            {Number(c.date.slice(8))}
+          </div>
+        ))}
+      </div>
+      <div className="legend">
+        <span>
+          <i style={{ background: 'var(--accent)', borderColor: 'var(--accent)' }} />
+          Einheit erledigt
+        </span>
+        <span>
+          <i style={{ background: 'var(--accent-soft)' }} />
+          teilweise
+        </span>
+      </div>
+
+      <h2 className="section-title">Festigung</h2>
+      <div className="row" style={{ gap: 18 }}>
+        <Ring value={cons.total ? cons.sitzt / cons.total : 0} size={104} stroke={7} label={`${cons.sitzt} von ${cons.total} Seiten sitzen`}>
+          <div className="serif" style={{ fontSize: 26 }}>
+            {cons.total ? Math.round((cons.sitzt / cons.total) * 100) : 0} %
+          </div>
+        </Ring>
+        <div style={{ flex: 1 }}>
+          <div className="serif" style={{ fontSize: 21, lineHeight: 1.25 }}>
+            {cons.sitzt} von {cons.total} Seiten sitzen
+          </div>
+          <div className="sub">zuletzt mit „sitzt“ bewertet</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 6 }}>
+            {cons.wackelt > 0 && <span className="tag warn">{cons.wackelt} wackelt</span>}
+            {cons.fehler > 0 && <span className="tag err">{cons.fehler} Fehler</span>}
+            {cons.unrated > 0 && <span className="tag">{cons.unrated} noch nicht bewertet</span>}
           </div>
         </div>
-        <div className="cal" aria-label="Kalender der letzten 4 Wochen">
-          {[1, 2, 3, 4, 5, 6, 0].map((d) => (
-            <div key={d} className="h">
-              {WEEKDAYS_SHORT[d]}
-            </div>
-          ))}
-          {cal.flat().map((c) => (
-            <div
-              key={c.date}
-              className={`d ${c.state}${c.today ? ' today' : ''}`}
-              title={formatDayMonth(c.date)}
-              aria-label={`${formatDayMonth(c.date)}: ${c.state === 'complete' ? 'erledigt' : c.state === 'partial' ? 'teilweise' : 'offen'}`}
+      </div>
+
+      <h2 className="section-title">30 Juz</h2>
+      <div className="juz-grid">
+        {juz.map((j) => {
+          const [a, b] = juzPages(profile.edition, j.juz);
+          return (
+            <button
+              key={j.juz}
+              type="button"
+              className={`juz ${j.state}`}
+              aria-label={`Juz ${j.juz}: ${j.done} von ${j.total} Seiten`}
+              onClick={() => onOpen({ page: a })}
+              title={`S. ${a}–${b}`}
             >
-              {Number(c.date.slice(8))}
-            </div>
-          ))}
-        </div>
-        <div className="legend">
-          <span>
-            <i style={{ background: 'var(--accent)' }} />
-            erledigt
-          </span>
-          <span>
-            <i style={{ background: 'var(--accent-soft)' }} />
-            teilweise
-          </span>
-        </div>
-      </section>
+              {j.state === 'partial' && <span className="fill" style={{ height: `${(j.done / j.total) * 100}%` }} />}
+              <span>{j.juz}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="legend">
+        <span>
+          <i style={{ background: 'var(--accent)', borderColor: 'var(--accent)' }} />
+          voll
+        </span>
+        <span>
+          <i style={{ borderColor: 'var(--accent)', background: 'var(--accent-soft)' }} />
+          teilweise
+        </span>
+        <span>
+          <i />
+          offen
+        </span>
+      </div>
 
-      <section className="card">
-        <div className="eyebrow">Festigung</div>
-        <div className="row" style={{ gap: 18, marginTop: 10 }}>
-          <Ring value={cons.total ? cons.sitzt / cons.total : 0} size={112} stroke={11} label={`${cons.sitzt} von ${cons.total} Seiten sitzen`}>
-            <div style={{ fontWeight: 750, fontSize: 22 }}>{cons.total ? Math.round((cons.sitzt / cons.total) * 100) : 0} %</div>
-          </Ring>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 650, fontSize: 18 }}>
-              {cons.sitzt} von {cons.total} Seiten sitzen
-            </div>
-            <div className="sub" style={{ marginTop: 4 }}>
-              Zuletzt bewertet mit „sitzt“.
-            </div>
-            <div className="chips-row" style={{ marginTop: 8, gap: 6 }}>
-              {cons.wackelt > 0 && <span className="chip warn">{cons.wackelt} wackelt</span>}
-              {cons.fehler > 0 && <span className="chip err">{cons.fehler} Fehler</span>}
-              {cons.unrated > 0 && <span className="chip">{cons.unrated} noch offen</span>}
-            </div>
-          </div>
-        </div>
-      </section>
+      <h2 className="section-title">Meilensteine</h2>
+      <div className="milestones">
+        {MILESTONES.map((m) => {
+          const reached = prog.pages >= pagesForMilestone(m.percent);
+          return (
+            <span key={m.percent} className={reached ? 'reached' : ''}>
+              {reached ? '✓ ' : ''}
+              {m.label}
+            </span>
+          );
+        })}
+      </div>
 
-      <section className="card">
-        <div className="eyebrow">30 Juz</div>
-        <div className="juz-grid">
-          {juz.map((j) => {
-            const [a, b] = juzPages(profile.edition, j.juz);
-            return (
-              <button
-                key={j.juz}
-                type="button"
-                className={`juz ${j.state}`}
-                aria-label={`Juz ${j.juz}: ${j.done} von ${j.total} Seiten`}
-                onClick={() => onOpen({ page: a })}
-                title={`S. ${a}–${b}`}
-              >
-                {j.state === 'partial' && <span className="fill" style={{ height: `${(j.done / j.total) * 100}%` }} />}
-                <span>{j.juz}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="legend">
-          <span>
-            <i style={{ background: 'var(--accent)' }} />
-            voll
-          </span>
-          <span>
-            <i style={{ boxShadow: 'inset 0 0 0 2px var(--accent)' }} />
-            teilweise
-          </span>
-          <span>
-            <i style={{ background: 'var(--surface-2)' }} />
-            offen
-          </span>
-        </div>
-      </section>
-
-      <section className="card">
-        <div className="eyebrow">Meilensteine</div>
-        <div className="milestones">
-          {MILESTONES.map((m) => {
-            const reached = prog.pages >= pagesForMilestone(m.percent);
-            return (
-              <span key={m.percent} className={`chip ${reached ? 'accent' : ''}`} style={reached ? undefined : { opacity: 0.7 }}>
-                {reached ? '✓ ' : ''}
-                {m.label}
-              </span>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="card">
-        <div className="eyebrow" style={{ marginBottom: 4 }}>
-          114 Suren
-        </div>
+      <h2 className="section-title">Suren</h2>
+      <div>
         {suras.map((s) => {
           const meta = SURAS[s.sura - 1];
-          const label = SURA_LABEL[s.state];
           const open = openSura === s.sura;
           return (
             <div key={s.sura}>
-              <button type="button" className="sura-row" aria-expanded={open} onClick={() => setOpenSura(open ? null : s.sura)}>
+              <button type="button" className="index-row" aria-expanded={open} onClick={() => setOpenSura(open ? null : s.sura)}>
                 <span className="num">{s.sura}</span>
-                <span className="name">
-                  <b>{meta.tr}</b>
-                  <span className={`chip ${label.cls}`} style={{ marginLeft: 8 }}>
-                    {label.text}
-                  </span>
+                <span className="name">{meta.tr}</span>
+                <span className="leader" aria-hidden="true" />
+                <span className={`state ${s.state}`}>
+                  {s.state === 'teilweise' ? `${s.done}/${s.total} S.` : SURA_LABEL[s.state]}
                 </span>
                 <span className="ar">{meta.ar}</span>
               </button>
               {open && (
                 <div className="sura-detail">
                   <div>
-                    Seite {s.from === s.to ? s.from : `${s.from}–${s.to}`} · {meta.ayahs} Ajat
+                    Seite {s.from === s.to ? s.from : `${s.from}–${s.to}`} · {meta.ayahs} Ajat · {SURA_LABEL[s.state]}
                   </div>
                   <div>
                     {s.done} von {s.total} {s.total === 1 ? 'Seite' : 'Seiten'} im Bestand
@@ -235,7 +234,7 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
             </div>
           );
         })}
-      </section>
+      </div>
     </div>
   );
 }

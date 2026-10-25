@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { initials } from './logic/profile';
 
-export function Icon({ name }: { name: 'today' | 'progress' | 'read' | 'settings' | 'eye' | 'play' | 'pause' | 'jump' | 'prev' | 'next' | 'copy' | 'plus' | 'chevron' }) {
+export function Icon({
+  name,
+}: {
+  name: 'today' | 'progress' | 'read' | 'settings' | 'eye' | 'play' | 'pause' | 'stop' | 'jump' | 'prev' | 'next' | 'copy' | 'plus' | 'chevron';
+}) {
   const p = {
     fill: 'none',
     stroke: 'currentColor',
@@ -55,6 +59,12 @@ export function Icon({ name }: { name: 'today' | 'progress' | 'read' | 'settings
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M8.5 5.5v13M15.5 5.5v13" {...p} strokeWidth={3} />
+        </svg>
+      );
+    case 'stop':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="7" y="7" width="10" height="10" rx="1.5" {...p} fill="currentColor" />
         </svg>
       );
     case 'jump':

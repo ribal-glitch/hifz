@@ -34,7 +34,9 @@ export function Who() {
       {profiles.map((p) => (
         <button key={p.id} type="button" className="profile-btn" onClick={() => openProfile(p.id)}>
           <Avatar name={p.name} color={p.color} size={48} />
-          <span style={{ flex: 1, fontSize: 19, fontWeight: 650 }}>{p.name}</span>
+          <span className="pname" style={{ flex: 1 }}>
+            {p.name}
+          </span>
           <span style={{ color: 'var(--muted)', transform: 'rotate(-90deg)' }}>
             <Icon name="chevron" />
           </span>
@@ -47,9 +49,11 @@ export function Who() {
           className="profile-btn"
           onClick={() => addProfile(markMilestonesSeen(ribalPreset(today), today))}
         >
-          <Avatar name="Ribal" color="#0F766E" size={48} />
+          <Avatar name="Ribal" color="#1F5A44" size={48} />
           <span style={{ flex: 1 }}>
-            <span style={{ display: 'block', fontSize: 19, fontWeight: 650 }}>Ribal</span>
+            <span className="pname" style={{ display: 'block' }}>
+              Ribal
+            </span>
             <span className="small">Vorbelegt: 227 Seiten · Dars al-ʿAnkabūt</span>
           </span>
           <span style={{ color: 'var(--muted)', transform: 'rotate(-90deg)' }}>

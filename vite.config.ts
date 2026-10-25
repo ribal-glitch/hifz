@@ -20,8 +20,8 @@ export default defineConfig({
         orientation: 'portrait',
         start_url: './',
         scope: './',
-        background_color: '#f5f3ee',
-        theme_color: '#f5f3ee',
+        background_color: '#f3eee3',
+        theme_color: '#f3eee3',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -30,7 +30,7 @@ export default defineConfig({
       },
       workbox: {
         // Alle Quran-Daten und die Schrift für den Offline-Betrieb vorab laden
-        globPatterns: ['**/*.{js,css,html,svg,png,json,ttf}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,json,ttf,woff2}'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: 'index.html',
       },

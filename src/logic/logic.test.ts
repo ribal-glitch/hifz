@@ -9,6 +9,7 @@ import {
   freshPages,
   nextMurajaPreview,
   ratePage,
+  rotationInfo,
   rotationPool,
   setDarsDone,
   setDarsEnabled,
@@ -211,6 +212,67 @@ describe('Schwachstellen', () => {
     const d2 = addDays(START, 1);
     p = ensureDay(p, d2);
     expect(p.days[d2].muraja).toEqual({ pages: range(293, 297), extra: [] });
+  });
+});
+
+describe('Nachprüfung ehemaliger Schwachstellen', () => {
+  it('kommt nach 3 und nach 7 Tagen wieder, dann ist die Seite fest', () => {
+    let p = doEverything(ribalPreset(START), START, (page) => (page === 294 ? 'fehler' : 'sitzt'));
+    const d1 = addDays(START, 1);
+    p = ensureDay(p, d1);
+    expect(p.days[d1].muraja!.extra).toEqual([294]);
+    p = doEverything(p, d1); // 294 sitzt wieder
+    expect(p.pages[294]).toMatchObject({ r: 'sitzt', due: addDays(d1, 3), step: 1 });
+
+    for (let i = 2; i <= 3; i++) {
+      const d = addDays(START, i);
+      p = ensureDay(p, d);
+      expect(p.days[d].muraja!.extra).toEqual([]);
+      p = doEverything(p, d);
+    }
+    const d4 = addDays(START, 4); // 3 Tage nach d1
+    p = ensureDay(p, d4);
+    expect(p.days[d4].muraja!.extra).toEqual([294]);
+    p = doEverything(p, d4);
+    expect(p.pages[294]).toMatchObject({ due: addDays(d4, 7), step: 2 });
+
+    const d11 = addDays(d4, 7);
+    p = ensureDay(p, d11);
+    expect(p.days[d11].muraja!.extra).toContain(294);
+    p = doEverything(p, d11);
+    expect(p.pages[294].due).toBeUndefined();
+  });
+
+  it('echte Schwachstellen haben Vorrang, zusammen höchstens 2', () => {
+    let p = ribalPreset(START);
+    p = {
+      ...p,
+      pages: {
+        500: { r: 'sitzt', d: '2026-10-20', due: '2026-10-23', step: 1 },
+        501: { r: 'wackelt', d: '2026-10-24' },
+        502: { r: 'fehler', d: '2026-10-24' },
+      },
+    };
+    p = ensureDay(p, START);
+    expect(p.days[START].muraja!.extra).toEqual([502, 501]);
+  });
+
+  it('eine Korrektur am selben Tag rechnet mit dem Stand von vorher', () => {
+    let p = ensureDay({ ...ribalPreset(START), pages: { 293: { r: 'fehler', d: '2026-10-20' } } }, START);
+    p = ratePage(p, START, 293, 'wackelt');
+    p = ratePage(p, START, 293, 'sitzt');
+    expect(p.pages[293]).toMatchObject({ r: 'sitzt', due: addDays(START, 3), step: 1 });
+  });
+});
+
+describe('Durchgang', () => {
+  it('zeigt Position und Dauer eines Durchgangs', () => {
+    let p = ensureDay(ribalPreset(START), START);
+    expect(rotationInfo(p, START)).toEqual({ size: 226, position: 1, cycleDays: 46 });
+    p = doEverything(p, START);
+    const d2 = addDays(START, 1);
+    p = ensureDay(p, d2);
+    expect(rotationInfo(p, d2).position).toBe(6);
   });
 });
 

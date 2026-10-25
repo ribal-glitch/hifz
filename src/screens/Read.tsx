@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ayahKey, useMushafData, type LineData, type TextData } from '../data/quranData';
+import { RECITERS, REPEAT_OPTIONS, reciterById, useAudio } from '../audio';
+import { useMushafData, type LineData, type TextData } from '../data/quranData';
 import { JUZ_COUNT, PAGE_COUNT, SURAS, juzPages, pageJuz, pageRangeLabel, suraPages, type EditionId } from '../logic/quran';
 import { useStore } from '../store';
-import { Icon, Sheet } from '../ui';
+import { Icon, Seg, Sheet } from '../ui';
 import type { ReadTarget } from './Today';
 
 const FONT = '"KFGQPC Hafs"';
@@ -14,9 +15,9 @@ const lastPageKey = (id: string) => `hifz:lastPage:${id}`;
 
 function readLastPage(id: string): number {
   try {
-    return Number(localStorage.getItem(lastPageKey(id))) || 1;
+    return Number(localStorage.getItem(lastPageKey(id))) || 0;
   } catch {
-    return 1;
+    return 0;
   }
 }
 
@@ -53,32 +54,21 @@ function fitFontSize(lines: LineData[], text: TextData, width: number): number {
   return Math.max(MIN_FS, Math.floor(fs * 10) / 10);
 }
 
-function audioUrl(sura: number, aya: number): string {
-  const p = (n: number) => String(n).padStart(3, '0');
-  return `https://everyayah.com/data/Husary_128kbps/${p(sura)}${p(aya)}.mp3`;
-}
-
-/** Ajat der Seite in Lesereihenfolge; -1 steht für die Basmala vor einer Sura. */
-function pagePlaylist(lines: LineData[]): number[] {
-  const out: number[] = [];
-  for (const line of lines) {
-    if (line[0] === 'b') out.push(-1);
-    if (line[0] === 't') for (const [idx] of line[1]) if (!out.includes(idx)) out.push(idx);
-  }
-  return out;
-}
-
 export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTargetUsed: () => void }) {
-  const { profile, toast } = useStore();
+  const { profile } = useStore();
+  const audio = useAudio();
   const ed: EditionId = profile?.edition ?? '1405';
   const data = useMushafData(ed);
-  const [page, setPageState] = useState(() => target?.page ?? (profile ? readLastPage(profile.id) : 1));
+  // Ohne Sprungziel: zuletzt gelesene Seite, sonst die Dars-Seite bzw. der Anfang des Bestands
+  const [page, setPageState] = useState(
+    () => target?.page || (profile && (readLastPage(profile.id) || (profile.dars.enabled ? profile.dars.page : profile.bestand[0]))) || 1,
+  );
   const [hl, setHl] = useState<{ from?: number; to?: number; start?: number } | null>(null);
   const [hifz, setHifz] = useState(false);
   const [revealed, setRevealed] = useState(0);
   const [jump, setJump] = useState(false);
-  const [playing, setPlaying] = useState<number | null>(null); // Index in der Playlist
-  const audio = useRef<HTMLAudioElement | null>(null);
+  const [listen, setListen] = useState(false);
+  const [counter, setCounter] = useState<number | null>(null);
 
   const setPage = useCallback(
     (p: number) => {
@@ -86,6 +76,7 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
       setPageState(n);
       setHl(null);
       setRevealed(0);
+      setCounter(null);
       if (profile) {
         try {
           localStorage.setItem(lastPageKey(profile.id), String(n));
@@ -102,45 +93,16 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
     if (!target) return;
     setPage(target.page);
     setHl({ from: target.from, to: target.to, start: target.startLine });
-    if (target.startLine) setHifz(true);
+    setHifz(!!target.startLine);
+    if (target.counter) setCounter(0);
     onTargetUsed();
   }, [target, setPage, onTargetUsed]);
 
   const lines = data && data !== 'error' ? data.layout.pages[page - 1] : null;
   const text = data && data !== 'error' ? data.text : null;
-  const playlist = useMemo(() => (lines ? pagePlaylist(lines) : []), [lines]);
-
-  // ---------- Audio ----------
-  const stopAudio = useCallback(() => {
-    audio.current?.pause();
-    setPlaying(null);
-  }, []);
-
-  useEffect(() => stopAudio, [page, stopAudio]);
-
-  const playAt = useCallback(
-    (i: number) => {
-      if (i >= playlist.length) {
-        setPlaying(null);
-        return;
-      }
-      const idx = playlist[i];
-      const [s, a] = idx === -1 ? [1, 1] : ayahKey(idx);
-      audio.current ??= new Audio();
-      const el = audio.current;
-      el.src = audioUrl(s, a);
-      el.onended = () => playAt(i + 1);
-      el.onerror = () => {
-        setPlaying(null);
-        toast('Audio nicht erreichbar – bist du online?');
-      };
-      setPlaying(i);
-      el.play().catch(() => setPlaying(null));
-    },
-    [playlist, toast],
-  );
-
-  const playingAyah = playing !== null ? playlist[playing] : null;
+  // Gerade gespielte Ajah hervorheben, wenn sie auf dieser Seite steht
+  const playingAyah = audio.state && audio.state.page === page ? audio.state.ayah : null;
+  const isPlayingHere = !!audio.state && audio.state.page === page;
 
   // ---------- Schriftgröße ----------
   const box = useRef<HTMLDivElement>(null);
@@ -234,12 +196,12 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
         <button
           type="button"
           className="iconbtn"
-          aria-pressed={playing !== null}
-          aria-label={playing !== null ? 'Audio anhalten' : 'Seite anhören (al-Ḥuṣarī)'}
-          onClick={() => (playing !== null ? stopAudio() : playAt(0))}
+          aria-pressed={isPlayingHere}
+          aria-label={isPlayingHere ? 'Wiedergabe beenden' : 'Anhören'}
+          onClick={() => (isPlayingHere ? audio.stop() : setListen(true))}
           disabled={!lines}
         >
-          <Icon name={playing !== null ? 'pause' : 'play'} />
+          <Icon name={isPlayingHere ? 'pause' : 'play'} />
         </button>
       </div>
 
@@ -310,6 +272,22 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
         </div>
       </div>
 
+      {counter !== null && (
+        <div className="counter" aria-live="polite">
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600 }}>Wiederholungen</div>
+            <div className="small">Ziel: etwa 10× flüssig lesen</div>
+          </div>
+          <button type="button" className="iconbtn" aria-label="Eine Wiederholung zurück" onClick={() => setCounter(Math.max(0, counter - 1))}>
+            −
+          </button>
+          <span className="n">{counter}</span>
+          <button type="button" className="btn primary" aria-label="Wiederholung zählen" onClick={() => setCounter(counter + 1)}>
+            +1
+          </button>
+        </div>
+      )}
+
       {hifz && (
         <div className="hifz-bar">
           <button type="button" className="btn primary" onClick={revealNext} disabled={revealed >= coverable.length}>
@@ -333,6 +311,18 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
         Wischen wie im Mushaf: nach rechts weiter, nach links zurück.
         {hifz ? ' Im Hifz-Modus deckt ein Tipp auf die Seite die nächste Zeile auf.' : ''}
       </p>
+
+      {listen && (
+        <ListenSheet
+          page={page}
+          hl={hl?.from !== undefined && hl.to !== undefined ? [hl.from, hl.to] : null}
+          onClose={() => setListen(false)}
+          onPlay={(from, to, repeatEach, rounds, reciter) => {
+            setListen(false);
+            void audio.play({ edition: ed, page, from, to, repeatEach, rounds, reciter });
+          }}
+        />
+      )}
 
       {jump && (
         <JumpSheet
@@ -403,6 +393,88 @@ function JumpSheet({ edition, onClose, onGo }: { edition: EditionId; onClose: ()
             ))}
           </select>
         </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function ListenSheet({
+  page,
+  hl,
+  onClose,
+  onPlay,
+}: {
+  page: number;
+  hl: [number, number] | null;
+  onClose: () => void;
+  onPlay: (from: number | undefined, to: number | undefined, repeatEach: number, rounds: number, reciter: string) => void;
+}) {
+  const { profile, update } = useStore();
+  const [range, setRange] = useState<'hl' | 'page'>(hl ? 'hl' : 'page');
+  const [rounds, setRounds] = useState(1);
+  if (!profile) return null;
+  const repeatEach = profile.repeatEach ?? 3;
+  const reciter = reciterById(profile.reciter);
+  return (
+    <Sheet title="Anhören" onClose={onClose}>
+      <div className="stack">
+        {hl && (
+          <div>
+            <label className="lbl">Bereich</label>
+            <Seg<'hl' | 'page'>
+              label="Bereich"
+              value={range}
+              onChange={setRange}
+              options={[
+                { value: 'hl', label: `Zeilen ${hl[0]}–${hl[1]}` },
+                { value: 'page', label: `Ganze Seite ${page}` },
+              ]}
+            />
+          </div>
+        )}
+        <div>
+          <label className="lbl" htmlFor="reciter">
+            Rezitator
+          </label>
+          <select id="reciter" className="field" value={reciter.id} onChange={(e) => update((p) => ({ ...p, reciter: e.target.value }))}>
+            {RECITERS.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+                {r.style !== 'Murattal' ? ` – ${r.style}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="lbl">Jede Ajah wiederholen</label>
+          <div className="chips-row">
+            {REPEAT_OPTIONS.map((n) => (
+              <button key={n} type="button" aria-pressed={repeatEach === n} onClick={() => update((p) => ({ ...p, repeatEach: n }))}>
+                {n}×
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="lbl">Den ganzen Bereich</label>
+          <div className="chips-row">
+            {[1, 3, 5].map((n) => (
+              <button key={n} type="button" aria-pressed={rounds === n} onClick={() => setRounds(n)}>
+                {n}×
+              </button>
+            ))}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="btn primary block"
+          onClick={() => onPlay(range === 'hl' && hl ? hl[0] : undefined, range === 'hl' && hl ? hl[1] : undefined, repeatEach, rounds, reciter.id)}
+        >
+          <Icon name="play" /> Abspielen
+        </button>
+        <p className="small" style={{ margin: 0 }}>
+          Zum Auswendiglernen hilft es, immer denselben Rezitator zu hören. Audio von EveryAyah.com, nur mit Internet.
+        </p>
       </div>
     </Sheet>
   );

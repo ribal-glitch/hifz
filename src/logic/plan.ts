@@ -3,6 +3,7 @@ import {
   FRESH_COUNT,
   MAX_EXTRA_PER_DAY,
   type DayRecord,
+  type PageState,
   type Profile,
   type Rating,
 } from './profile';
@@ -103,15 +104,41 @@ export function weakPages(profile: Profile, date: ISODate): number[] {
     .map((s) => s.page);
 }
 
+/** Abstände der Nachprüfung, nachdem eine Schwachstelle wieder „sitzt“: nach 3, dann nach 7 Tagen. */
+export const FOLLOW_UP_DAYS = [3, 7];
+
+/** Ehemalige Schwachstellen, deren Nachprüfung fällig ist (älteste zuerst). */
+export function dueFollowUps(profile: Profile, date: ISODate): number[] {
+  const bestand = effectiveBestand(profile, date);
+  return Object.entries(profile.pages)
+    .map(([p, s]) => ({ page: Number(p), ...s }))
+    .filter((s) => s.r === 'sitzt' && s.due && s.due <= date && bestand.has(s.page))
+    .sort((a, b) => (a.due! < b.due! ? -1 : a.due! > b.due! ? 1 : a.page - b.page))
+    .map((s) => s.page);
+}
+
 function planMuraja(profile: Profile, date: ISODate): { pages: number[]; extra: number[] } {
   const pool = rotationPool(profile, date);
   const pages = murajaBlock(pool, profile.murajaNext, profile.murajaPerDay);
   const excluded = new Set([...pages, ...freshPages(profile, date)]);
   if (profile.dars.enabled) excluded.add(darsPage(profile, date));
-  const extra = weakPages(profile, date)
+  // Zuerst echte Schwachstellen, dann fällige Nachprüfungen – zusammen höchstens 2 pro Tag.
+  const extra = [...weakPages(profile, date), ...dueFollowUps(profile, date)]
     .filter((p) => !excluded.has(p) && (profile.pages[p]?.d ?? '') < date)
     .slice(0, MAX_EXTRA_PER_DAY);
   return { pages, extra };
+}
+
+/** Wo die Rotation steht und wie lange ein Durchgang durch den ganzen Bestand dauert. */
+export function rotationInfo(profile: Profile, date: ISODate): { size: number; position: number; cycleDays: number } {
+  const pool = rotationPool(profile, date);
+  const start = profile.days[date]?.muraja?.pages[0] ?? murajaBlock(pool, profile.murajaNext, 1)[0];
+  const idx = Math.max(0, pool.indexOf(start));
+  return {
+    size: pool.length,
+    position: idx + 1,
+    cycleDays: pool.length ? Math.ceil(pool.length / Math.max(1, profile.murajaPerDay)) : 0,
+  };
 }
 
 export function emptyDay(date: ISODate): DayRecord {
@@ -197,14 +224,35 @@ export function toggleFresh(profile: Profile, date: ISODate, page: number): Prof
  * Seite des heutigen Blocks vor; ist der Block fertig, beginnt der nächste dahinter.
  */
 export function ratePage(profile: Profile, date: ISODate, page: number, r: Rating): Profile {
+  const before = profile.pages[page];
+  // Wurde die Seite heute schon bewertet, zählt der Stand von davor.
+  const prev = before?.d === date ? before.prev : before && withoutPrev(before);
   let p = updateDayRecord(profile, date, (d) => ({ ...d, ratings: { ...d.ratings, [page]: r } }));
-  p = { ...p, pages: { ...p.pages, [page]: { r, d: date } } };
+  p = { ...p, pages: { ...p.pages, [page]: { ...nextPageState(prev, r, date), prev } } };
   const block = p.days[date].muraja?.pages ?? [];
   if (block.includes(page)) {
     const open = block.find((x) => !p.days[date].ratings[x]);
     p = { ...p, murajaNext: open ?? block[block.length - 1] + 1 };
   }
   return p;
+}
+
+function withoutPrev({ prev: _ignored, ...rest }: PageState): PageState {
+  return rest;
+}
+
+/**
+ * Neuer Stand einer Seite nach einer Bewertung. Eine Schwachstelle, die wieder sitzt,
+ * wird nach 3 und nach 7 Tagen nachgeprüft (wachsende Abstände festigen am besten).
+ */
+export function nextPageState(prev: PageState | undefined, r: Rating, date: ISODate): PageState {
+  if (r !== 'sitzt') return { r, d: date };
+  if (prev && isWeak(prev.r)) return { r, d: date, due: addDays(date, FOLLOW_UP_DAYS[0]), step: 1 };
+  if (prev?.due && prev.step && prev.due <= date) {
+    const next = FOLLOW_UP_DAYS[prev.step];
+    return next ? { r, d: date, due: addDays(date, next), step: prev.step + 1 } : { r, d: date };
+  }
+  return prev?.due ? { r, d: date, due: prev.due, step: prev.step } : { r, d: date };
 }
 
 export function setNote(profile: Profile, date: ISODate, note: string): Profile {

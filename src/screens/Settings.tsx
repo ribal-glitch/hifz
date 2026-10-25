@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { BestandEditor } from '../components/BestandEditor';
 import { WEEKDAYS, WEEKDAYS_SHORT } from '../logic/dates';
-import { darsPage, effectiveBestand, replanIfUntouched, setDarsEnabled, setDarsPage, setDarsWeekday } from '../logic/plan';
+import { RECITERS, REPEAT_OPTIONS, reciterById } from '../audio';
+import { darsPage, effectiveBestand, replanIfUntouched, rotationInfo, setDarsEnabled, setDarsPage, setDarsWeekday } from '../logic/plan';
 import { AVATAR_COLORS, MURAJA_OPTIONS } from '../logic/profile';
 import { EDITIONS, formatRanges, pageRangeLabel, range } from '../logic/quran';
 import { claudeSummary } from '../logic/summary';
@@ -15,11 +16,13 @@ export function Settings() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pendingImport, setPendingImport] = useState<ReturnType<typeof parseProfileFile>>(null);
   const [summary, setSummary] = useState<string | null>(null);
+  const [showMethod, setShowMethod] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   if (!profile) return null;
 
   const bestand = [...effectiveBestand(profile, today)].sort((a, b) => a - b);
   const dp = darsPage(profile, today);
+  const rot = rotationInfo(profile, today);
   // Änderungen an der Murājaʿa wirken sofort, solange heute noch nichts bewertet ist.
   const updatePlan = (fn: Parameters<typeof update>[0]) => update((p) => replanIfUntouched(fn(p), today));
 
@@ -179,6 +182,46 @@ export function Settings() {
             Die Rotation läuft von hier fortlaufend durch deinen Bestand. Schwachstellen kommen zusätzlich dran (höchstens 2 pro Tag).
           </p>
         </div>
+        <p className="hint">
+          Mit {profile.murajaPerDay} Seiten pro Tag kommt jede deiner {rot.size} Seiten alle {rot.cycleDays} Tage einmal dran. Je kürzer der
+          Durchgang, desto fester bleibt der Bestand – die Menge am besten mit deinem Sheikh absprechen.
+        </p>
+      </section>
+
+      <div className="section-title">Anhören</div>
+      <section className="card stack">
+        <div>
+          <label className="lbl" htmlFor="set-reciter">
+            Rezitator
+          </label>
+          <select
+            id="set-reciter"
+            className="field"
+            value={reciterById(profile.reciter).id}
+            onChange={(e) => update((p) => ({ ...p, reciter: e.target.value }))}
+          >
+            {RECITERS.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+                {r.style !== 'Murattal' ? ` – ${r.style}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="lbl">Jede Ajah wiederholen</label>
+          <div className="chips-row">
+            {REPEAT_OPTIONS.map((n) => (
+              <button key={n} type="button" aria-pressed={(profile.repeatEach ?? 3) === n} onClick={() => update((p) => ({ ...p, repeatEach: n }))}>
+                {n}×
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="small" style={{ margin: 0 }}>
+          Für das Auswendiglernen hilft ein ruhiger Murattal-Vortrag und immer derselbe Rezitator. Die Muʿallim-Aufnahme von al-Ḥuṣarī ist
+          zum Nachsprechen gedacht. Audio von EveryAyah.com, nur mit Internet.
+        </p>
       </section>
 
       <div className="section-title">Darstellung</div>
@@ -229,13 +272,49 @@ export function Settings() {
         </button>
       </section>
 
+      <div className="section-title">Die Methode</div>
+      <section className="card">
+        {!showMethod ? (
+          <button type="button" className="btn ghost" style={{ padding: 0 }} onClick={() => setShowMethod(true)}>
+            Wie die tägliche Einheit aufgebaut ist
+          </button>
+        ) : (
+          <div className="prose">
+            <p>
+              Die Einheit folgt dem klassischen Dreiklang der Hifz-Schulen: <b>Neues lernen</b> (Sabaq), <b>Frisches festigen</b> (Sabqī) und{' '}
+              <b>Altes wiederholen</b> (Manzil, Murājaʿa).
+            </p>
+            <p>
+              <b>Neu lernen:</b> Die Dars-Seite wird in fünf Portionen à 3 Zeilen gelernt – erst anhören, dann lesen, bis es flüssig ist, dann
+              auswendig aufsagen und mit den Zeilen davor verbinden. Am Tag vor dem Vortrag wird die ganze Seite geprobt.
+            </p>
+            <p>
+              <b>Frisch festigen:</b> Die letzten vier Dars-Seiten werden täglich aufgesagt, denn neu Gelerntes vergisst man in den ersten Wochen am
+              schnellsten.
+            </p>
+            <p>
+              <b>Altes wiederholen:</b> Die Murājaʿa läuft lückenlos im Kreis durch den ganzen Bestand. Was wackelt, kommt am nächsten Tag wieder,
+              bis es sitzt – und danach noch einmal nach 3 und nach 7 Tagen zur Nachprüfung.
+            </p>
+            <p>
+              <b>Erst abrufen, dann nachsehen:</b> Seiten öffnen sich zum Prüfen verdeckt. Aus dem Gedächtnis aufzusagen und erst danach zu kontrollieren,
+              festigt stärker als bloßes Nachlesen.
+            </p>
+            <p>
+              <b>Übergänge:</b> Die Mini-Prüfung fragt bevorzugt Seitenwechsel und Schwachstellen ab, damit du überall sicher einsteigen kannst.
+            </p>
+          </div>
+        )}
+      </section>
+
       <div className="section-title">Quellen</div>
       <section className="card small">
         <p style={{ marginTop: 0 }}>
           Quran-Text und Schrift: King Fahd Glorious Quran Printing Complex (KFGQPC), Uthmani Hafs ʿan ʿĀṣim, Version 18 – unverändert.
         </p>
         <p>Zeilenumbrüche des Madina-Mushaf: quran-madina-html von Tarek Eldeeb (Waqf General Public License 2.0).</p>
-        <p style={{ marginBottom: 0 }}>Rezitation: Maḥmūd Khalīl al-Ḥuṣarī über EveryAyah.com (nur online).</p>
+        <p>Rezitationen: über EveryAyah.com (nur online).</p>
+        <p style={{ marginBottom: 0 }}>Überschriften: EB Garamond (SIL Open Font License).</p>
       </section>
 
       {editBestand && (

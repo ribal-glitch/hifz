@@ -9,6 +9,12 @@ export interface PageState {
   r: Rating;
   /** Tag der letzten Bewertung */
   d: ISODate;
+  /** Nachprüfung fällig ab (für ehemalige Schwachstellen) */
+  due?: ISODate;
+  /** wievielte Nachprüfung als Nächstes kommt (1 = nach 3 Tagen, 2 = nach 7 Tagen) */
+  step?: number;
+  /** Stand vor der ersten Bewertung des Tages, damit eine Korrektur am selben Tag richtig rechnet */
+  prev?: PageState;
 }
 
 export type QuizKind = 'start' | 'transition';
@@ -64,13 +70,17 @@ export interface Profile {
   pages: Record<number, PageState>;
   days: Record<ISODate, DayRecord>;
   milestonesSeen: number[];
+  /** EveryAyah-Ordner des gewählten Rezitators */
+  reciter?: string;
+  /** Wiederholungen pro Ajah beim Anhören */
+  repeatEach?: number;
 }
 
 export const MURAJA_OPTIONS = [3, 4, 5, 6, 8, 10, 20];
 export const MAX_EXTRA_PER_DAY = 2;
 export const FRESH_COUNT = 4;
 
-export const AVATAR_COLORS = ['#0F766E', '#B45309', '#7C3AED', '#BE185D', '#1D4ED8', '#4D7C0F', '#9F1239', '#0E7490'];
+export const AVATAR_COLORS = ['#1F5A44', '#8A5A2B', '#6B4E8C', '#9C3D54', '#2F5E8A', '#5E6B2F', '#8C3A2E', '#2E6E73'];
 
 export function newId(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);

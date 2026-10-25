@@ -37,12 +37,21 @@ export function loadText(): Promise<TextData> {
   return textPromise;
 }
 
+const layoutCache: Partial<Record<EditionId, LayoutData>> = {};
+
 export function loadLayout(ed: EditionId): Promise<LayoutData> {
-  layoutPromises[ed] ??= fetchJson<LayoutData>(`data/layout-${ed}.json`).catch((e) => {
-    delete layoutPromises[ed];
-    throw e;
-  });
+  layoutPromises[ed] ??= fetchJson<LayoutData>(`data/layout-${ed}.json`)
+    .then((l) => (layoutCache[ed] = l))
+    .catch((e) => {
+      delete layoutPromises[ed];
+      throw e;
+    });
   return layoutPromises[ed]!;
+}
+
+/** Schon geladenes Layout (oder null), für Aufrufe, die sofort reagieren müssen. */
+export function cachedLayout(ed: EditionId): LayoutData | null {
+  return layoutCache[ed] ?? null;
 }
 
 export function useMushafData(ed: EditionId): { text: TextData; layout: LayoutData } | 'error' | null {

@@ -5,6 +5,20 @@ dazu Fortschritt, Mushaf-Ansicht mit Hifz-Modus und Profile ohne Login.
 Die App ist eine installierbare Web-App (PWA) und funktioniert nach dem ersten
 Öffnen auch offline. Alle Daten bleiben auf dem jeweiligen Gerät.
 
+## Methode
+
+Die tägliche Einheit folgt dem klassischen Dreiklang der Hifz-Schulen:
+
+1. **Neu lernen (Dars):** die Wochenseite in Portionen à 3 Zeilen – anhören, lesen bis flüssig,
+   auswendig aufsagen, mit den Zeilen davor verbinden; Probevortrag am Tag vor dem Dars.
+2. **Frisches festigen:** die letzten vier Dars-Seiten täglich auswendig.
+3. **Altes wiederholen (Murājaʿa):** lückenlose Rotation durch den ganzen Bestand. Schwachstellen kommen
+   täglich zusätzlich dran, bis sie sitzen, und danach zur Nachprüfung nach 3 und 7 Tagen.
+
+Zum Prüfen öffnen sich Seiten verdeckt (erst abrufen, dann nachsehen). Die Mini-Prüfung fragt bevorzugt
+Seitenübergänge und Schwachstellen ab. Zum Anhören stehen 16 bekannte Rezitatoren (EveryAyah.com) mit
+Wiederholung pro Ajah bereit.
+
 ## Auf dem Handy installieren
 
 **iPhone (Safari):** Link öffnen → unten auf „Teilen“ (Quadrat mit Pfeil) →
@@ -44,9 +58,10 @@ Aufbau:
 
 - Quran-Text (Uthmani, Hafs ʿan ʿĀṣim, v18) und die Schrift „KFGQPC HAFS Uthmanic Script“:
   King Fahd Glorious Quran Printing Complex. Die Schrift wird unverändert ausgeliefert.
+- Überschriften-Schrift: EB Garamond (SIL Open Font License), über `@fontsource/eb-garamond`.
 - Zeilenumbrüche des Madina-Mushaf (Ausgaben 1405 H und 1441 H): aus
   [quran-madina-html](https://www.npmjs.com/package/quran-madina-html) von Tarek Eldeeb,
   Waqf General Public License 2.0. Übernommen werden nur die Zeilengrenzen.
-- Rezitation: Maḥmūd Khalīl al-Ḥuṣarī über [EveryAyah.com](https://everyayah.com), nur online abgespielt.
+- Rezitationen: über [EveryAyah.com](https://everyayah.com) (u. a. al-Ḥuṣarī, al-Minshāwī, ʿAbd al-Bāsiṭ, al-ʿAfāsī), nur online abgespielt.
 - Die Quran-Foundation-API (quran.com) wird bewusst nicht verwendet: Ihre Developer Terms erlauben
   keine vorab gebündelten Textdaten.
