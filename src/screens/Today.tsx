@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react';
-import { reciterById, useAudio } from '../audio';
+import { listenUrl, reciterById, useAudio } from '../audio';
+import { useLayoutReady } from '../data/quranData';
+import { IS_ARTIFACT } from '../platform';
 import { addDays, formatDayMonth, formatLong, weekday, WEEKDAYS_SHORT } from '../logic/dates';
 import {
   cardStatus,
@@ -111,11 +113,23 @@ function PageLink({ page, onOpen, children }: { page: number; onOpen: () => void
 function DarsMethod({ task, onOpen }: { task: DarsTask; onOpen: (t: ReadTarget) => void }) {
   const { profile, today } = useStore();
   const audio = useAudio();
+  useLayoutReady(profile?.edition ?? '1405');
   if (!profile) return null;
   const reps = profile.repeatEach ?? 3;
   const reciter = reciterById(profile.reciter);
   const listen = (from?: number, to?: number, repeatEach?: number) =>
     void audio.play({ edition: profile.edition, page: task.page, from, to, repeatEach });
+  // In der Link-Version gibt es keinen eigenen Player: Rezitation auf quran.com öffnen
+  const listenButton = (from?: number, to?: number, repeatEach?: number) =>
+    IS_ARTIFACT ? (
+      <a className="btn" href={listenUrl(profile.edition, task.page, from, to)} target="_blank" rel="noopener noreferrer">
+        <Icon name="play" /> Hören
+      </a>
+    ) : (
+      <button type="button" className="btn" onClick={() => listen(from, to, repeatEach)}>
+        <Icon name="play" /> Hören
+      </button>
+    );
   const prevLearned = effectiveBestand(profile, today).has(task.page - 1);
 
   const items: { what: ReactNode; detail: string; action: ReactNode }[] = [];
@@ -123,12 +137,8 @@ function DarsMethod({ task, onOpen }: { task: DarsTask; onOpen: (t: ReadTarget) 
     const range = `Zeilen ${task.from}–${task.to}`;
     items.push({
       what: 'Anhören',
-      detail: `jede Ajah ${reps}× · ${reciter.name.split(' ').slice(-1)[0]}`,
-      action: (
-        <button type="button" className="btn" onClick={() => listen(task.from, task.to)}>
-          <Icon name="play" /> Hören
-        </button>
-      ),
+      detail: IS_ARTIFACT ? 'mehrmals, auf quran.com' : `jede Ajah ${reps}× · ${reciter.name.split(' ').slice(-1)[0]}`,
+      action: listenButton(task.from, task.to),
     });
     items.push({
       what: 'Lesen, bis es flüssig ist',
@@ -180,11 +190,7 @@ function DarsMethod({ task, onOpen }: { task: DarsTask; onOpen: (t: ReadTarget) 
     items.push({
       what: 'Ganze Seite anhören',
       detail: 'einmal durchgehend, auf Tajwīd achten',
-      action: (
-        <button type="button" className="btn" onClick={() => listen(undefined, undefined, 1)}>
-          <Icon name="play" /> Hören
-        </button>
-      ),
+      action: listenButton(undefined, undefined, 1),
     });
     items.push({
       what: 'Probevortrag',

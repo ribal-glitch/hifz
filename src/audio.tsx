@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ayahKey, cachedLayout, loadLayout, type LayoutData } from './data/quranData';
 import type { EditionId } from './logic/quran';
+import { quranComPageUrl, quranComUrl } from './platform';
 import { useStore } from './store';
 
 export interface Reciter {
@@ -52,6 +53,20 @@ export function ayahsForLines(layout: LayoutData, page: number, from?: number, t
     if (line[0] === 't') for (const [idx] of line[1]) if (!out.includes(idx)) out.push(idx);
   });
   return out;
+}
+
+/** Link zum Anhören auf quran.com (Link-Version): Ajat der Zeilen, sonst die ganze Seite. */
+export function listenUrl(ed: EditionId, page: number, from?: number, to?: number): string {
+  const layout = cachedLayout(ed);
+  if (layout && from && to) {
+    const list = ayahsForLines(layout, page, from, to).filter((i) => i >= 0);
+    if (list.length) {
+      const [s1, a1] = ayahKey(list[0]);
+      const [s2, a2] = ayahKey(list[list.length - 1]);
+      if (s1 === s2) return quranComUrl(s1, a1, a2);
+    }
+  }
+  return quranComPageUrl(page);
 }
 
 export interface PlayRequest {

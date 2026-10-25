@@ -54,6 +54,22 @@ export function cachedLayout(ed: EditionId): LayoutData | null {
   return layoutCache[ed] ?? null;
 }
 
+/** true, sobald das Layout der Ausgabe geladen ist (löst dann ein neues Rendern aus). */
+export function useLayoutReady(ed: EditionId): boolean {
+  const [ready, setReady] = useState(() => !!layoutCache[ed]);
+  useEffect(() => {
+    if (layoutCache[ed]) return setReady(true);
+    let alive = true;
+    loadLayout(ed)
+      .then(() => alive && setReady(true))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [ed]);
+  return ready;
+}
+
 export function useMushafData(ed: EditionId): { text: TextData; layout: LayoutData } | 'error' | null {
   const [state, setState] = useState<{ text: TextData; layout: LayoutData } | 'error' | null>(null);
   useEffect(() => {

@@ -6,11 +6,13 @@ import '@fontsource/eb-garamond/latin-600.css';
 import '@fontsource/eb-garamond/latin-ext-600.css';
 import { App } from './App';
 import { AudioProvider } from './audio';
+import { IS_ARTIFACT } from './platform';
 import { StoreProvider } from './store';
 import './styles.css';
 
 // Neue Versionen werden im Hintergrund geladen und beim nächsten Öffnen aktiv.
-registerSW({ immediate: true });
+if (IS_ARTIFACT) document.documentElement.classList.add('artifact');
+else registerSW({ immediate: true });
 
 createRoot(document.getElementById('root')!).render(
   <StoreProvider>

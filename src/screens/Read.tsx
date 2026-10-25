@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { RECITERS, REPEAT_OPTIONS, reciterById, useAudio } from '../audio';
+import { RECITERS, REPEAT_OPTIONS, listenUrl, reciterById, useAudio } from '../audio';
+import { IS_ARTIFACT } from '../platform';
 import { useMushafData, type LineData, type TextData } from '../data/quranData';
 import { JUZ_COUNT, PAGE_COUNT, SURAS, juzPages, pageJuz, pageRangeLabel, suraPages, type EditionId } from '../logic/quran';
 import { useStore } from '../store';
@@ -193,16 +194,28 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
         >
           <Icon name="eye" />
         </button>
-        <button
-          type="button"
-          className="iconbtn"
-          aria-pressed={isPlayingHere}
-          aria-label={isPlayingHere ? 'Wiedergabe beenden' : 'Anhören'}
-          onClick={() => (isPlayingHere ? audio.stop() : setListen(true))}
-          disabled={!lines}
-        >
-          <Icon name={isPlayingHere ? 'pause' : 'play'} />
-        </button>
+        {IS_ARTIFACT ? (
+          <a
+            className="iconbtn"
+            href={listenUrl(ed, page, hl?.from, hl?.to)}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Auf quran.com anhören"
+          >
+            <Icon name="play" />
+          </a>
+        ) : (
+          <button
+            type="button"
+            className="iconbtn"
+            aria-pressed={isPlayingHere}
+            aria-label={isPlayingHere ? 'Wiedergabe beenden' : 'Anhören'}
+            onClick={() => (isPlayingHere ? audio.stop() : setListen(true))}
+            disabled={!lines}
+          >
+            <Icon name={isPlayingHere ? 'pause' : 'play'} />
+          </button>
+        )}
       </div>
 
       <div

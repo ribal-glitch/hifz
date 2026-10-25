@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { BestandEditor } from '../components/BestandEditor';
 import { WEEKDAYS, WEEKDAYS_SHORT } from '../logic/dates';
 import { RECITERS, REPEAT_OPTIONS, reciterById } from '../audio';
+import { IS_ARTIFACT } from '../platform';
 import { darsPage, effectiveBestand, replanIfUntouched, rotationInfo, setDarsEnabled, setDarsPage, setDarsWeekday } from '../logic/plan';
 import { AVATAR_COLORS, MURAJA_OPTIONS } from '../logic/profile';
 import { EDITIONS, formatRanges, pageRangeLabel, range } from '../logic/quran';
@@ -39,7 +40,8 @@ export function Settings() {
   const exportProfile = async () => {
     const { name, text } = profileFile(profile);
     const r = await saveFile(name, text);
-    if (r !== 'cancelled') toast('Backup erstellt.');
+    if (r === 'unavailable') toast('Speichern als Datei ist hier nicht möglich.');
+    else if (r !== 'cancelled') toast('Backup erstellt.');
   };
 
   const onImport = async (f: File | undefined) => {
@@ -189,6 +191,14 @@ export function Settings() {
       </section>
 
       <div className="section-title">Anhören</div>
+      {IS_ARTIFACT ? (
+        <section className="card">
+          <p style={{ margin: 0 }}>
+            In dieser Link-Version öffnet „Hören“ die Rezitation auf quran.com in einem neuen Tab. Dort wählst du den Rezitator (z. B.
+            al-Ḥuṣarī, al-Minshāwī, ʿAbd al-Bāsiṭ) und kannst jede Ajah wiederholen lassen.
+          </p>
+        </section>
+      ) : (
       <section className="card stack">
         <div>
           <label className="lbl" htmlFor="set-reciter">
@@ -223,6 +233,7 @@ export function Settings() {
           zum Nachsprechen gedacht. Audio von EveryAyah.com, nur mit Internet.
         </p>
       </section>
+      )}
 
       <div className="section-title">Darstellung</div>
       <section className="card">

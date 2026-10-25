@@ -74,6 +74,8 @@ export interface Profile {
   reciter?: string;
   /** Wiederholungen pro Ajah beim Anhören */
   repeatEach?: number;
+  /** Zeitpunkt der letzten Änderung, zum Abgleich zwischen Geräten */
+  updatedAt?: string;
 }
 
 export const MURAJA_OPTIONS = [3, 4, 5, 6, 8, 10, 20];
