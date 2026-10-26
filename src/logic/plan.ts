@@ -196,7 +196,11 @@ function withStatus(profile: Profile, date: ISODate): Profile {
   const vals = [s.dars, s.fresh, s.muraja].filter((v) => v !== null);
   const day = profile.days[date];
   const touched =
-    day.darsDone || day.freshDone.length > 0 || Object.keys(day.ratings).length > 0 || day.quiz.some((q) => q.ok !== null);
+    day.darsDone ||
+    day.freshDone.length > 0 ||
+    Object.keys(day.ratings).length > 0 ||
+    day.quiz.some((q) => q.ok !== null) ||
+    (day.free?.length ?? 0) > 0;
   return {
     ...profile,
     days: { ...profile.days, [date]: { ...day, complete: vals.length > 0 && vals.every(Boolean), touched } },
@@ -223,12 +227,16 @@ export function toggleFresh(profile: Profile, date: ISODate, page: number): Prof
  * Bewertet eine Murājaʿa-Seite. Die Rotation rückt bis zur ersten noch offenen
  * Seite des heutigen Blocks vor; ist der Block fertig, beginnt der nächste dahinter.
  */
-export function ratePage(profile: Profile, date: ISODate, page: number, r: Rating): Profile {
+/** Neuer Seitenstand nach einer Bewertung; eine zweite Bewertung am selben Tag rechnet mit dem Stand davor. */
+function applyRating(profile: Profile, date: ISODate, page: number, r: Rating): Profile {
   const before = profile.pages[page];
-  // Wurde die Seite heute schon bewertet, zählt der Stand von davor.
   const prev = before?.d === date ? before.prev : before && withoutPrev(before);
+  return { ...profile, pages: { ...profile.pages, [page]: { ...nextPageState(prev, r, date), prev } } };
+}
+
+export function ratePage(profile: Profile, date: ISODate, page: number, r: Rating): Profile {
   let p = updateDayRecord(profile, date, (d) => ({ ...d, ratings: { ...d.ratings, [page]: r } }));
-  p = { ...p, pages: { ...p.pages, [page]: { ...nextPageState(prev, r, date), prev } } };
+  p = applyRating(p, date, page, r);
   const block = p.days[date].muraja?.pages ?? [];
   if (block.includes(page)) {
     const open = block.find((x) => !p.days[date].ratings[x]);
@@ -253,6 +261,39 @@ export function nextPageState(prev: PageState | undefined, r: Rating, date: ISOD
     return next ? { r, d: date, due: addDays(date, next), step: prev.step + 1 } : { r, d: date };
   }
   return prev?.due ? { r, d: date, due: prev.due, step: prev.step } : { r, d: date };
+}
+
+/**
+ * Wiederholung außerhalb des Plans eintragen (eine oder mehrere Seiten mit derselben Bewertung).
+ * Sie zählt für Festigung und Schwachstellen wie eine Bewertung im Plan, verschiebt aber die Rotation nicht.
+ */
+export function logFreeReview(profile: Profile, date: ISODate, pages: number[], r: Rating): Profile {
+  let p = updateDayRecord(profile, date, (d) => {
+    const others = (d.free ?? []).filter((f) => !pages.includes(f.page));
+    return { ...d, free: [...others, ...pages.map((page) => ({ page, r }))] };
+  });
+  for (const page of pages) p = applyRating(p, date, page, r);
+  return p;
+}
+
+/** Eintrag wieder entfernen; der Seitenstand von vor dem Eintrag wird wiederhergestellt. */
+export function removeFreeReview(profile: Profile, date: ISODate, page: number): Profile {
+  let p = updateDayRecord(profile, date, (d) => ({ ...d, free: (d.free ?? []).filter((f) => f.page !== page) }));
+  const st = p.pages[page];
+  if (st?.d === date && !p.days[date].ratings[page]) {
+    const pages = { ...p.pages };
+    if (st.prev) pages[page] = st.prev;
+    else delete pages[page];
+    p = { ...p, pages };
+  }
+  return p;
+}
+
+/** Wiederholte Seiten eines Tages: im Plan bewertet plus selbst eingetragen. */
+export function reviewedCount(profile: Profile, date: ISODate): { plan: number; free: number } {
+  const d = profile.days[date];
+  if (!d) return { plan: 0, free: 0 };
+  return { plan: Object.keys(d.ratings).length + d.freshDone.length, free: d.free?.length ?? 0 };
 }
 
 export function setNote(profile: Profile, date: ISODate, note: string): Profile {

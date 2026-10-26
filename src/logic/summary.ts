@@ -33,6 +33,12 @@ function dayLine(profile: Profile, date: ISODate): string {
       .map(([r, n]) => `${n}× ${RATING_LABEL[r]}`);
     parts.push(`Murājaʿa ${rated.length}/${all.length}${counts.length ? ` (${counts.join(', ')})` : ''}`);
   }
+  if (day.free?.length) {
+    const weak = day.free.filter((f) => f.r !== 'sitzt').map((f) => f.page);
+    parts.push(
+      `außerhalb des Plans S. ${formatRanges(day.free.map((f) => f.page))}${weak.length ? ` (nicht sicher: S. ${formatRanges(weak)})` : ''}`,
+    );
+  }
   const quiz = day.quiz.filter((q) => q.ok !== null);
   if (quiz.length) parts.push(`Prüfung ${quiz.filter((q) => q.ok).length}/${quiz.length} fehlerfrei`);
   return `${formatShort(date)}: ${parts.join(' · ')}${day.complete ? ' – alles erledigt' : ''}`;

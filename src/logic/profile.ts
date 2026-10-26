@@ -28,6 +28,11 @@ export interface QuizItem {
   ok: boolean | null;
 }
 
+export interface FreeReview {
+  page: number;
+  r: Rating;
+}
+
 export interface DayRecord {
   date: ISODate;
   darsDone: boolean;
@@ -37,6 +42,8 @@ export interface DayRecord {
   ratings: Record<number, Rating>;
   note: string;
   quiz: QuizItem[];
+  /** Selbst eingetragene Wiederholungen außerhalb des Plans */
+  free?: FreeReview[];
   /** Alle Karten des Tages erledigt */
   complete: boolean;
   /** Mindestens etwas erledigt */

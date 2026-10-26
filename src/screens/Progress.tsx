@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { formatDayMonth, WEEKDAYS_SHORT } from '../logic/dates';
-import { rotationInfo } from '../logic/plan';
+import { addDays, formatDayMonth, WEEKDAYS_SHORT } from '../logic/dates';
+import { reviewedCount, rotationInfo } from '../logic/plan';
 import { SURAS, formatDecimal, juzPages } from '../logic/quran';
 import {
   MILESTONES,
@@ -41,6 +41,10 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
   const next = MILESTONES.find((m) => prog.pages < pagesForMilestone(m.percent));
   const celebrated = fresh.length ? MILESTONES.find((m) => m.percent === Math.max(...fresh)) : null;
   const doneDays = cal.flat().filter((c) => c.state === 'complete').length;
+  const week = Array.from({ length: 7 }, (_, i) => reviewedCount(profile, addDays(today, -i))).reduce(
+    (acc, c) => ({ plan: acc.plan + c.plan, free: acc.free + c.free }),
+    { plan: 0, free: 0 },
+  );
 
   return (
     <div>
@@ -134,6 +138,11 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
           teilweise
         </span>
       </div>
+
+      <p className="hint">
+        Letzte 7 Tage: {week.plan + week.free} Seiten wiederholt
+        {week.free > 0 ? `, davon ${week.free} außerhalb des Plans` : ''}.
+      </p>
 
       <h2 className="section-title">Festigung</h2>
       <div className="row" style={{ gap: 18 }}>

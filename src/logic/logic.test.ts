@@ -9,6 +9,9 @@ import {
   freshPages,
   nextMurajaPreview,
   ratePage,
+  logFreeReview,
+  removeFreeReview,
+  reviewedCount,
   rotationInfo,
   rotationPool,
   setDarsDone,
@@ -262,6 +265,32 @@ describe('Nachprüfung ehemaliger Schwachstellen', () => {
     p = ratePage(p, START, 293, 'wackelt');
     p = ratePage(p, START, 293, 'sitzt');
     expect(p.pages[293]).toMatchObject({ r: 'sitzt', due: addDays(START, 3), step: 1 });
+  });
+});
+
+describe('Wiederholung außerhalb des Plans', () => {
+  it('zählt für Schwachstellen und Festigung, verschiebt die Rotation nicht', () => {
+    let p = ensureDay(ribalPreset(START), START);
+    p = logFreeReview(p, START, [500, 501, 502], 'sitzt');
+    p = logFreeReview(p, START, [503], 'wackelt');
+    expect(p.days[START].free).toHaveLength(4);
+    expect(p.pages[503]).toMatchObject({ r: 'wackelt' });
+    expect(p.murajaNext).toBe(293);
+    expect(reviewedCount(p, START)).toEqual({ plan: 0, free: 4 });
+    expect(p.days[START].touched).toBe(true);
+    expect(p.days[START].complete).toBe(false);
+    const d2 = addDays(START, 1);
+    p = ensureDay(p, d2);
+    expect(p.days[d2].muraja!.extra).toEqual([503]);
+  });
+
+  it('Entfernen stellt den vorherigen Stand wieder her', () => {
+    let p = ensureDay({ ...ribalPreset(START), pages: { 510: { r: 'wackelt', d: '2026-10-20' } } }, START);
+    p = logFreeReview(p, START, [510], 'sitzt');
+    expect(p.pages[510]).toMatchObject({ r: 'sitzt', step: 1 });
+    p = removeFreeReview(p, START, 510);
+    expect(p.pages[510]).toEqual({ r: 'wackelt', d: '2026-10-20' });
+    expect(p.days[START].free).toEqual([]);
   });
 });
 

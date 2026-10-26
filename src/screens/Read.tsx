@@ -3,6 +3,8 @@ import { RECITERS, REPEAT_OPTIONS, listenUrl, reciterById, useAudio } from '../a
 import { IS_ARTIFACT } from '../platform';
 import { useMushafData, type LineData, type TextData } from '../data/quranData';
 import { JUZ_COUNT, PAGE_COUNT, SURAS, juzPages, pageJuz, pageRangeLabel, suraPages, type EditionId } from '../logic/quran';
+import { logFreeReview, removeFreeReview } from '../logic/plan';
+import type { Rating } from '../logic/profile';
 import { useStore } from '../store';
 import { Icon, Seg, Sheet } from '../ui';
 import type { ReadTarget } from './Today';
@@ -301,6 +303,8 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
         </div>
       )}
 
+      <PageReview page={page} />
+
       {hifz && (
         <div className="hifz-bar">
           <button type="button" className="btn primary" onClick={revealNext} disabled={revealed >= coverable.length}>
@@ -490,5 +494,40 @@ function ListenSheet({
         </p>
       </div>
     </Sheet>
+  );
+}
+
+/** Diese Seite als Wiederholung außerhalb des Plans eintragen. */
+function PageReview({ page }: { page: number }) {
+  const { profile, today, update } = useStore();
+  if (!profile) return null;
+  const planned = profile.days[today]?.muraja;
+  const inPlan = !!planned && [...planned.pages, ...planned.extra].includes(page);
+  const current = profile.days[today]?.free?.find((f) => f.page === page)?.r;
+  const opts: { r: Rating; label: string }[] = [
+    { r: 'sitzt', label: 'sitzt' },
+    { r: 'wackelt', label: 'wackelt' },
+    { r: 'fehler', label: 'Fehler' },
+  ];
+  if (inPlan) return null;
+  return (
+    <div className="read-review">
+      <div style={{ fontWeight: 600, fontSize: 15 }}>
+        {current ? `S. ${page} heute zusätzlich wiederholt` : `S. ${page} zusätzlich wiederholt?`}
+      </div>
+      <div className="rate" role="group" aria-label={`Seite ${page} außerhalb des Plans bewerten`}>
+        {opts.map(({ r, label }) => (
+          <button
+            key={r}
+            type="button"
+            className={r}
+            aria-pressed={current === r}
+            onClick={() => update((p) => (current === r ? removeFreeReview(p, today, page) : logFreeReview(p, today, [page], r)))}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

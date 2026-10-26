@@ -1,9 +1,11 @@
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
-import '@fontsource/eb-garamond/latin-500.css';
-import '@fontsource/eb-garamond/latin-ext-500.css';
-import '@fontsource/eb-garamond/latin-600.css';
-import '@fontsource/eb-garamond/latin-ext-600.css';
+import '@fontsource/plus-jakarta-sans/latin-400.css';
+import '@fontsource/plus-jakarta-sans/latin-ext-400.css';
+import '@fontsource/plus-jakarta-sans/latin-600.css';
+import '@fontsource/plus-jakarta-sans/latin-ext-600.css';
+import '@fontsource/plus-jakarta-sans/latin-700.css';
+import '@fontsource/plus-jakarta-sans/latin-ext-700.css';
 import { App } from './App';
 import { AudioProvider } from './audio';
 import { IS_ARTIFACT } from './platform';

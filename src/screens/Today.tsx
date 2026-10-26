@@ -15,10 +15,13 @@ import {
   setDarsDone,
   setNote,
   toggleFresh,
+  logFreeReview,
+  removeFreeReview,
+  reviewedCount,
   type DarsTask,
 } from '../logic/plan';
 import type { Rating } from '../logic/profile';
-import { formatRanges, pageLineCount, pageRangeLabel, textLines } from '../logic/quran';
+import { PAGE_COUNT, formatRanges, pageLineCount, pageRangeLabel, range, textLines } from '../logic/quran';
 import { addQuestion, newQuestion, rateQuestion } from '../logic/quiz';
 import { streak } from '../logic/stats';
 import { useStore } from '../store';
@@ -274,6 +277,9 @@ export function Today({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
                 {st} {st === 1 ? 'Tag' : 'Tage'} in Folge
               </span>
             )}
+            {reviewedCount(profile, today).free > 0 && (
+              <span className="small">+{reviewedCount(profile, today).free} S. außerhalb des Plans</span>
+            )}
           </div>
         )}
       </header>
@@ -426,6 +432,8 @@ export function Today({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
         )}
       </div>
 
+      <FreeReviews onOpen={onOpen} />
+
       <div className="ornament" aria-hidden="true">
         <i />
       </div>
@@ -512,6 +520,74 @@ function Quiz({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
                 <span style={{ flex: 1 }}>{renderQ(q)}</span>
                 <span className={`tag ${q.ok ? 'accent' : 'err'}`}>{q.ok ? 'fehlerfrei' : 'mit Fehlern'}</span>
               </div>
+            ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Wiederholungen außerhalb des Plans: Seiten selbst eintragen und bewerten. */
+function FreeReviews({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
+  const { profile, today, update, toast } = useStore();
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  if (!profile) return null;
+  const entries = profile.days[today]?.free ?? [];
+  const a = Number(from);
+  const b = Number(to || from);
+  const valid = a >= 1 && b <= PAGE_COUNT && a <= b && b - a < 40;
+  const log = (r: Rating) => {
+    if (!valid) return;
+    update((p) => logFreeReview(p, today, range(a, b), r));
+    toast(`${a === b ? `S. ${a}` : `S. ${a}–${b}`} als „${r === 'fehler' ? 'Fehler' : r}“ eingetragen`);
+    setFrom('');
+    setTo('');
+  };
+  const label = { sitzt: 'sitzt', wackelt: 'wackelt', fehler: 'Fehler' } as const;
+  return (
+    <section>
+      <h2 className="section-title">Außerhalb des Plans</h2>
+      <p className="small" style={{ margin: '-4px 0 10px' }}>
+        Seiten, die du zusätzlich wiederholt hast, z. B. im Gebet oder unterwegs. Sie zählen für Festigung und Schwachstellen; der
+        Plan läuft unverändert weiter.
+      </p>
+      <div className="free-form">
+        <div>
+          <label className="lbl" htmlFor="free-from">
+            Von Seite
+          </label>
+          <input id="free-from" className="field" inputMode="numeric" value={from} onChange={(e) => setFrom(e.target.value.replace(/\D/g, ''))} />
+        </div>
+        <div>
+          <label className="lbl" htmlFor="free-to">
+            Bis Seite (optional)
+          </label>
+          <input id="free-to" className="field" inputMode="numeric" value={to} onChange={(e) => setTo(e.target.value.replace(/\D/g, ''))} />
+        </div>
+      </div>
+      <div className="rate" role="group" aria-label="Eingetragene Seiten bewerten">
+        {RATINGS.map(({ r, label: l }) => (
+          <button key={r} type="button" className={r} disabled={!valid} onClick={() => log(r)}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {entries.length > 0 && (
+        <div className="free-list" aria-label="Heute außerhalb des Plans">
+          {entries
+            .slice()
+            .sort((x, y) => x.page - y.page)
+            .map((f) => (
+              <span key={f.page} className="free-item">
+                <button type="button" className="link" style={{ width: 'auto', height: 'auto' }} onClick={() => onOpen({ page: f.page })}>
+                  S. {f.page}
+                </button>
+                <span className={`tag ${f.r === 'sitzt' ? 'accent' : f.r === 'wackelt' ? 'warn' : 'err'}`}>{label[f.r]}</span>
+                <button type="button" aria-label={`Eintrag Seite ${f.page} entfernen`} onClick={() => update((p) => removeFreeReview(p, today, f.page))}>
+                  ×
+                </button>
+              </span>
             ))}
         </div>
       )}

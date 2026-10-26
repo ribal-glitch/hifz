@@ -58,7 +58,7 @@ Aufbau:
 
 - Quran-Text (Uthmani, Hafs ʿan ʿĀṣim, v18) und die Schrift „KFGQPC HAFS Uthmanic Script“:
   King Fahd Glorious Quran Printing Complex. Die Schrift wird unverändert ausgeliefert.
-- Überschriften-Schrift: EB Garamond (SIL Open Font License), über `@fontsource/eb-garamond`.
+- Schrift der Oberfläche: Plus Jakarta Sans (SIL Open Font License), über `@fontsource/plus-jakarta-sans`.
 - Zeilenumbrüche des Madina-Mushaf (Ausgaben 1405 H und 1441 H): aus
   [quran-madina-html](https://www.npmjs.com/package/quran-madina-html) von Tarek Eldeeb,
   Waqf General Public License 2.0. Übernommen werden nur die Zeilengrenzen.

@@ -325,7 +325,7 @@ export function Settings() {
         </p>
         <p>Zeilenumbrüche des Madina-Mushaf: quran-madina-html von Tarek Eldeeb (Waqf General Public License 2.0).</p>
         <p>Rezitationen: über EveryAyah.com (nur online).</p>
-        <p style={{ marginBottom: 0 }}>Überschriften: EB Garamond (SIL Open Font License).</p>
+        <p style={{ marginBottom: 0 }}>Schrift der Oberfläche: Plus Jakarta Sans (SIL Open Font License).</p>
       </section>
 
       {editBestand && (
