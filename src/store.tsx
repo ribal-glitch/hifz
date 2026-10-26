@@ -3,6 +3,9 @@ import { logicalToday, type ISODate } from './logic/dates';
 import { ensureDay } from './logic/plan';
 import { newId, type Profile } from './logic/profile';
 import { IS_ARTIFACT, cloudBackend, localBackend, type Backend } from './platform';
+import { ACCOUNTS_ENABLED, accountBackend, currentUser, logOut, signIn, signUp, type AccountUser } from './account';
+
+const DEVICE_ONLY_KEY = 'hifz:deviceOnly';
 
 export { saveFile } from './platform';
 
@@ -60,8 +63,15 @@ interface Store {
   setTheme: (t: Theme) => void;
   toast: (msg: string) => void;
   toastMsg: string | null;
-  /** Wo die Daten liegen: im Claude-Konto oder nur in diesem Browser */
+  /** Wo die Daten liegen: im Konto oder nur in diesem Browser */
   storageKind: Backend['kind'];
+  /** angemeldetes Konto (App-Version mit Firebase) */
+  account: AccountUser | null;
+  /** Anmeldung nötig, bevor es losgeht */
+  needLogin: boolean;
+  login: (mode: 'signin' | 'signup', email: string, password: string) => Promise<void>;
+  continueWithoutAccount: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -79,6 +89,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [today, setToday] = useState<ISODate>(() => logicalToday());
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [storageKind, setStorageKind] = useState<Backend['kind']>('local');
+  const [account, setAccount] = useState<AccountUser | null>(null);
+  const [needLogin, setNeedLogin] = useState(false);
   const backend = useRef<Backend>(localBackend);
   const pending = useRef<Profile | null>(null);
   const profileRef = useRef<Profile | null>(null);
@@ -136,7 +148,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [write],
   );
 
-  // Laden: in claude.ai bevorzugt aus dem Claude-Konto, sonst aus dem Browser
+  /** Übernimmt einmalig, was vorher nur in diesem Browser lag, wenn das Konto noch leer ist. */
+  const migrateLocal = useCallback(async (cloud: Backend) => {
+    if (await cloud.get(META_KEY)) return;
+    const localMeta = await localBackend.get<AppMeta>(META_KEY);
+    if (!localMeta?.profiles.length) return;
+    for (const pm of localMeta.profiles) {
+      const lp = await localBackend.get<Profile>(profileKey(pm.id));
+      if (lp) await cloud.set(profileKey(pm.id), lp as unknown as Record<string, unknown>);
+    }
+    await cloud.set(META_KEY, localMeta as unknown as Record<string, unknown>);
+  }, []);
+
+  /** Stand aus dem aktuellen Speicher laden. */
+  const loadAll = useCallback(async () => {
+    const store = backend.current;
+    const m = (await store.get<AppMeta>(META_KEY).catch(() => undefined)) ?? EMPTY_META;
+    setMeta(m);
+    setProfile(null);
+    if (m.lastProfileId) {
+      const p = await store.get<Profile>(profileKey(m.lastProfileId)).catch(() => undefined);
+      if (p) setProfile(ensureDay(p, logicalToday()));
+    }
+  }, []);
+
+  const enterAccount = useCallback(
+    async (user: AccountUser) => {
+      const cloud = accountBackend(user.uid);
+      try {
+        await migrateLocal(cloud);
+      } catch {
+        /* offline: später erneut */
+      }
+      backend.current = cloud;
+      setStorageKind('cloud');
+      setAccount(user);
+      setNeedLogin(false);
+      await loadAll();
+    },
+    [loadAll, migrateLocal],
+  );
+
+  // Laden: Konto (Firebase in der App, Claude-Konto in der Link-Version), sonst Browser
   useEffect(() => {
     (async () => {
       if (IS_ARTIFACT) {
@@ -145,30 +198,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           backend.current = cloud;
           setStorageKind('cloud');
           try {
-            // Einmalig übernehmen, was vorher nur in diesem Browser lag
-            if (!(await cloud.get(META_KEY))) {
-              const localMeta = await localBackend.get<AppMeta>(META_KEY);
-              if (localMeta?.profiles.length) {
-                for (const pm of localMeta.profiles) {
-                  const lp = await localBackend.get<Profile>(profileKey(pm.id));
-                  if (lp) await cloud.set(profileKey(pm.id), lp as unknown as Record<string, unknown>);
-                }
-                await cloud.set(META_KEY, localMeta as unknown as Record<string, unknown>);
-              }
-            }
+            await migrateLocal(cloud);
           } catch {
             backend.current = localBackend;
             setStorageKind('local');
           }
         }
+      } else if (ACCOUNTS_ENABLED) {
+        const user = await currentUser();
+        if (user) {
+          await enterAccount(user);
+          setReady(true);
+          return;
+        }
+        let deviceOnly = false;
+        try {
+          deviceOnly = localStorage.getItem(DEVICE_ONLY_KEY) === '1';
+        } catch {
+          /* egal */
+        }
+        if (!deviceOnly) {
+          setNeedLogin(true);
+          setReady(true);
+          return;
+        }
       }
-      const store = backend.current;
-      const m = (await store.get<AppMeta>(META_KEY).catch(() => undefined)) ?? EMPTY_META;
-      setMeta(m);
-      if (m.lastProfileId) {
-        const p = await store.get<Profile>(profileKey(m.lastProfileId)).catch(() => undefined);
-        if (p) setProfile(ensureDay(p, logicalToday()));
-      }
+      await loadAll();
       setReady(true);
       try {
         await navigator.storage?.persist?.();
@@ -176,7 +231,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         /* nicht unterstützt */
       }
     })();
-  }, []);
+  }, [loadAll, migrateLocal, enterAccount]);
+
+  const login = useCallback(
+    async (mode: 'signin' | 'signup', email: string, password: string) => {
+      const user = mode === 'signup' ? await signUp(email, password) : await signIn(email, password);
+      await enterAccount(user);
+    },
+    [enterAccount],
+  );
+
+  const continueWithoutAccount = useCallback(async () => {
+    try {
+      localStorage.setItem(DEVICE_ONLY_KEY, '1');
+    } catch {
+      /* egal */
+    }
+    backend.current = localBackend;
+    setStorageKind('local');
+    setNeedLogin(false);
+    await loadAll();
+  }, [loadAll]);
+
+  const logout = useCallback(async () => {
+    flush();
+    await logOut();
+    try {
+      localStorage.removeItem(DEVICE_ONLY_KEY);
+    } catch {
+      /* egal */
+    }
+    backend.current = localBackend;
+    setStorageKind('local');
+    setAccount(null);
+    setProfile(null);
+    setMeta(EMPTY_META);
+    setNeedLogin(true);
+  }, [flush]);
 
   // Tageswechsel erkennen; beim Zurückkehren den neueren Stand von einem anderen Gerät holen
   useEffect(() => {
@@ -314,8 +405,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toast,
       toastMsg,
       storageKind,
+      account,
+      needLogin,
+      login,
+      continueWithoutAccount,
+      logout,
     }),
-    [ready, today, meta, profile, openProfile, addProfile, closeProfile, update, deleteProfile, importProfile, setTheme, toast, toastMsg, storageKind],
+    [
+      ready,
+      today,
+      meta,
+      profile,
+      openProfile,
+      addProfile,
+      closeProfile,
+      update,
+      deleteProfile,
+      importProfile,
+      setTheme,
+      toast,
+      toastMsg,
+      storageKind,
+      account,
+      needLogin,
+      login,
+      continueWithoutAccount,
+      logout,
+    ],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

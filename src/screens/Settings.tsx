@@ -3,6 +3,7 @@ import { BestandEditor } from '../components/BestandEditor';
 import { WEEKDAYS, WEEKDAYS_SHORT } from '../logic/dates';
 import { RECITERS, REPEAT_OPTIONS, reciterById } from '../audio';
 import { IS_ARTIFACT } from '../platform';
+import { ACCOUNTS_ENABLED } from '../account';
 import { darsPage, effectiveBestand, replanIfUntouched, rotationInfo, setDarsEnabled, setDarsPage, setDarsWeekday } from '../logic/plan';
 import { AVATAR_COLORS, MURAJA_OPTIONS } from '../logic/profile';
 import { EDITIONS, formatRanges, pageRangeLabel, range } from '../logic/quran';
@@ -12,7 +13,7 @@ import { Avatar, Confirm, Icon, Seg, Sheet, Stepper } from '../ui';
 import { WEEK_ORDER } from './Onboarding';
 
 export function Settings() {
-  const { profile, today, update, theme, setTheme, deleteProfile, importProfile, toast, closeProfile } = useStore();
+  const { profile, today, update, theme, setTheme, deleteProfile, importProfile, toast, closeProfile, account, logout } = useStore();
   const [editBestand, setEditBestand] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pendingImport, setPendingImport] = useState<ReturnType<typeof parseProfileFile>>(null);
@@ -87,7 +88,7 @@ export function Settings() {
           ))}
         </div>
         <div>
-          <label className="lbl">Mushaf-Ausgabe (bestimmt die Zeilennummern)</label>
+          <label className="lbl">Mushaf-Ausgabe (bestimmt die Zeilenumbrüche)</label>
           <Seg
             label="Mushaf-Ausgabe"
             value={profile.edition}
@@ -272,6 +273,31 @@ export function Settings() {
           }}
         />
       </section>
+
+      {ACCOUNTS_ENABLED && (
+        <>
+          <div className="section-title">Konto</div>
+          <section className="card stack">
+            {account ? (
+              <>
+                <p style={{ margin: 0 }}>
+                  Angemeldet als <b>{account.email}</b>. Dein Stand liegt im Konto und ist auf jedem Gerät gleich, auf dem du dich anmeldest.
+                </p>
+                <button type="button" className="btn block" onClick={() => void logout()}>
+                  Abmelden
+                </button>
+              </>
+            ) : (
+              <>
+                <p style={{ margin: 0 }}>Ohne Konto liegen deine Daten nur auf diesem Gerät.</p>
+                <button type="button" className="btn primary block" onClick={() => void logout()}>
+                  Anmelden oder Konto erstellen
+                </button>
+              </>
+            )}
+          </section>
+        </>
+      )}
 
       <div className="section-title">Profile</div>
       <section className="card stack">

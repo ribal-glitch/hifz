@@ -6,7 +6,7 @@ import { Avatar, Confirm, Icon } from '../ui';
 import { Onboarding } from './Onboarding';
 
 export function Who() {
-  const { profiles, openProfile, addProfile, importProfile, today, toast } = useStore();
+  const { profiles, openProfile, addProfile, importProfile, today, toast, account } = useStore();
   const [creating, setCreating] = useState(false);
   const [pendingImport, setPendingImport] = useState<Profile | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -28,7 +28,9 @@ export function Who() {
     <div className="who">
       <h1>Wer lernt?</h1>
       <p className="sub" style={{ marginTop: 0, marginBottom: 24 }}>
-        Jedes Profil hat seinen eigenen Stand. Die Daten bleiben auf diesem Gerät.
+        {account
+          ? `Angemeldet als ${account.email}. Jedes Profil hat seinen eigenen Stand.`
+          : 'Jedes Profil hat seinen eigenen Stand. Die Daten bleiben auf diesem Gerät.'}
       </p>
 
       {profiles.map((p) => (

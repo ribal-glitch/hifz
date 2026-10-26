@@ -4,6 +4,7 @@ import { Read } from './screens/Read';
 import { Settings } from './screens/Settings';
 import { Today, type ReadTarget } from './screens/Today';
 import { Who } from './screens/Who';
+import { Login } from './screens/Login';
 import { useAudio, reciterById } from './audio';
 import { ayahKey } from './data/quranData';
 import { suraName } from './logic/quran';
@@ -19,7 +20,7 @@ const SLIDES = [
 const START_SLIDE = 1;
 
 export function App() {
-  const { ready, profile, closeProfile, toastMsg } = useStore();
+  const { ready, profile, closeProfile, toastMsg, needLogin } = useStore();
   const audio = useAudio();
   const [active, setActive] = useState(START_SLIDE);
   const [settings, setSettings] = useState(false);
@@ -66,7 +67,9 @@ export function App() {
 
   return (
     <>
-      {!profile ? (
+      {needLogin ? (
+        <Login />
+      ) : !profile ? (
         <Who />
       ) : (
         <div className={`app${audio.state ? ' has-player' : ''}`}>

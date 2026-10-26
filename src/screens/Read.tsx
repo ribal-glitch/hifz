@@ -125,8 +125,8 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
       setFontReady(true);
     });
   }, []);
-  // Seitenrand: 22 px Zeilennummer + Innenabstand
-  const textWidth = Math.max(0, width - 22 - 14);
+  // Seitenrand: Innenabstand links und rechts
+  const textWidth = Math.max(0, width - 22);
   const fs = useMemo(
     () => (lines && text && fontReady && textWidth ? fitFontSize(lines, text, textWidth) : 20),
     [lines, text, fontReady, textWidth],
@@ -250,9 +250,6 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
                 .join(' ');
               return (
                 <div key={n} className={cls} style={{ minHeight: `${fs * 1.9}px` }}>
-                  <span className="lno" aria-label={`Zeile ${n}`}>
-                    {n}
-                  </span>
                   <div className="mtext">
                     {line[0] === 'h' && (
                       <div className="sura-frame" style={{ fontSize: fs * 1.05 }}>
