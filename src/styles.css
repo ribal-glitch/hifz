@@ -1994,71 +1994,76 @@ a.btn.primary {
   width: 44px;
 }
 
-/* ---------- Lesen: Kopf mit Sura-Namen, bleibt beim Scrollen stehen ---------- */
+/* ---------- Lesen: kompakter Kopf mit Sura-Namen, bleibt beim Scrollen stehen ---------- */
 .reader-head {
   position: sticky;
   top: 0;
   z-index: 5;
   background: var(--bg);
   margin: 0 -18px;
-  padding: 2px 18px 10px;
+  padding: 2px 18px 8px;
 }
 
 .reader-head .reader-bar {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
+  gap: 6px;
 }
 
 .backbtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  min-height: 40px;
-  padding: 0 16px 0 8px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 42px;
+  height: 42px;
+  padding: 0;
   border: 1px solid var(--text);
-  border-radius: 999px;
+  border-radius: 50%;
   background: var(--surface);
   color: var(--text);
-  font-weight: 600;
-  font-size: 17px;
 }
 
 .backbtn svg {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
 }
 
 .sura-title {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-}
-
-.sura-title .names {
   flex: 1;
   min-width: 0;
+  line-height: 1.2;
 }
 
 .sura-title h2 {
   margin: 0;
   font-family: var(--serif);
-  letter-spacing: -0.035em;
-  font-size: 28px;
-  line-height: 1.15;
+  letter-spacing: -0.03em;
+  font-size: 19px;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sura-title .names div {
-  font-size: 14px;
+.sura-title div {
+  font-size: 13px;
   color: var(--muted);
-  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sura-title .ar {
+.sura-ar {
   font-family: 'KFGQPC Hafs', serif;
-  font-size: 30px;
-  line-height: 1.3;
+  font-size: 26px;
+  line-height: 1.2;
   color: var(--sky);
   flex: none;
+}
+
+@media (max-width: 420px) {
+  .sura-ar {
+    display: none;
+  }
 }
 
 /* ---------- Schalter-Leiste ---------- */
@@ -2290,4 +2295,150 @@ a.btn.primary {
 
 .sura-row .leader {
   min-width: 0;
+}
+
+/* ---------- Lesen: ganze Seite auf einem Bildschirm ---------- */
+.reader.fit {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.reader.fit .reader-head {
+  position: static;
+}
+
+.reader.fit .mushaf-viewport {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.reader:not(.fit) {
+  padding-bottom: 24px;
+}
+
+.reader .switch-bar {
+  margin: 0;
+}
+
+.reader .switch {
+  min-height: 42px;
+}
+
+.mline .sura-frame {
+  line-height: 1.4;
+  margin: 2px 3px;
+}
+
+.hifz-tools {
+  flex: none;
+  margin-top: 8px;
+}
+
+.hifz-tools .switch-bar.single {
+  margin: 0 0 8px;
+}
+
+.hifz-tools .hifz-bar {
+  margin-top: 0;
+}
+
+/* Umblättern: die neue Seite gleitet herein, kurz „Seite …“ */
+.mushaf.turn-next {
+  animation: turn-next 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.mushaf.turn-prev {
+  animation: turn-prev 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@keyframes turn-next {
+  from {
+    transform: translateX(-38%) rotate(-1.5deg);
+    opacity: 0;
+  }
+}
+
+@keyframes turn-prev {
+  from {
+    transform: translateX(38%) rotate(1.5deg);
+    opacity: 0;
+  }
+}
+
+.page-badge {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  animation: badge 1.4s ease-out;
+}
+
+@keyframes badge {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  15%,
+  70% {
+    opacity: 0.92;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Lesen-Fenster der App: Inhalt so hoch wie der Bildschirm */
+.app.reading .slide:first-child .content {
+  height: 100%;
+  padding-bottom: 8px;
+}
+
+.app.reading .slides {
+  overflow-x: hidden;
+}
+
+/* Am Handy: nur der Text. Kopf und Tab-Leiste der App verschwinden, die Seite geht bis an den Rand. */
+@media (max-width: 760px) {
+  .app.reading .topbar,
+  .app.reading .tabbar {
+    display: none;
+  }
+
+  .app.reading .reader-head {
+    padding-top: calc(env(safe-area-inset-top) + 6px);
+  }
+
+  html.artifact .app.reading .reader-head {
+    padding-top: 8px;
+  }
+
+  .app.reading .slide:first-child .content {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 6px);
+  }
+
+  .app.reading .mushaf-viewport {
+    padding: 0;
+    margin-top: 8px;
+  }
+
+  .app.reading .reader.fit .mushaf {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .app.reading .player,
+  .app.reading .ayah-bar {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  }
 }

@@ -15,8 +15,6 @@ import {
   surasOnPage,
   type EditionId,
 } from '../logic/quran';
-import { logFreeReview, removeFreeReview } from '../logic/plan';
-import type { Rating } from '../logic/profile';
 import { useStore } from '../store';
 import { Icon, Seg, Sheet, Switch } from '../ui';
 import { TAJWEED_LEGEND, tajweedAyah, type Piece } from '../logic/tajweed';
@@ -25,9 +23,12 @@ import { suraStatus } from '../logic/stats';
 import type { ReadTarget } from './Today';
 
 const FONT = '"KFGQPC Hafs"';
-const GAP_EM = 0.16;
+const GAP_EM = 0.12;
 const MAX_FS = 30;
 const MIN_FS = 14;
+
+/** Innenabstand der Seite oben und unten zusammen (siehe .mushaf) */
+const PAGE_PAD_V = 26;
 
 const lastPageKey = (id: string) => `hifz:lastPage:${id}`;
 
@@ -83,7 +84,15 @@ function fitFontSize(lines: LineData[], text: TextData, width: number): number {
   return Math.max(MIN_FS, Math.floor(fs * 10) / 10);
 }
 
-export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTargetUsed: () => void }) {
+export function Read({
+  target,
+  onTargetUsed,
+  onReading,
+}: {
+  target: ReadTarget | null;
+  onTargetUsed: () => void;
+  onReading: (open: boolean) => void;
+}) {
   const { profile } = useStore();
   const audio = useAudio();
   const ed: EditionId = profile?.edition ?? '1405';
@@ -109,12 +118,16 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
   };
   /** angetippte Ajah (globaler Index) für Schleife und Nachsprechen */
   const [sel, setSel] = useState<number | null>(null);
+  const [legend, setLegend] = useState(false);
+  /** Richtung des letzten Umblätterns, für die kleine Animation */
+  const [turn, setTurn] = useState<'next' | 'prev' | null>(null);
   /** Lesen beginnt mit der Suren-Übersicht; ein Sprungziel öffnet direkt die Seite */
   const [view, setView] = useState<'index' | 'page'>(() => (target ? 'page' : 'index'));
   // Bei jedem Start: Tajwīd an, Übersetzung und Verdecken aus
   const [tajweed, setTajweed] = useState(true);
   const [trans, setTrans] = useState(false);
   const [transChoice, setTransChoice] = usePref<TranslationId>('hifz:transChoice', 'bubenheim');
+  useEffect(() => onReading(view === 'page'), [view, onReading]);
 
   // Die geöffnete Seite bekommt einen Verlaufseintrag, damit „Zurück“ (Wischgeste, Android-Taste,
   // Browser) wieder zur Suren-Übersicht führt statt die App zu verlassen.
@@ -166,7 +179,10 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
   const setPage = useCallback(
     (p: number) => {
       const n = Math.max(1, Math.min(PAGE_COUNT, p));
-      setPageState(n);
+      setPageState((cur) => {
+        setTurn(n > cur ? 'next' : n < cur ? 'prev' : null);
+        return n;
+      });
       setHl(null);
       setSel(null);
       setRevealed(0);
@@ -200,29 +216,50 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
   const isPlayingHere = !!audio.state && audio.state.page === page;
 
   // ---------- Schriftgröße ----------
+  // Breite des Textes (Seite ohne Innenabstand) und Höhe des freien Platzes für die Seite
   const box = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+  const vp = useRef<HTMLDivElement>(null);
+  const [textWidth, setTextWidth] = useState(0);
+  const [vpHeight, setVpHeight] = useState(0);
   const [fontReady, setFontReady] = useState(false);
   useLayoutEffect(() => {
     const el = box.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    const v = vp.current;
+    if (!el || !v) return;
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      setTextWidth(Math.max(0, el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)));
+      setVpHeight(v.clientHeight);
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setWidth(el.clientWidth);
+    ro.observe(v);
+    measure();
     return () => ro.disconnect();
-  }, [lines]);
+  }, [lines, view, trans]);
   useEffect(() => {
     document.fonts.load(`100px ${FONT}`).then(() => {
       widthCache.clear();
       setFontReady(true);
     });
   }, []);
-  // Seitenrand: Innenabstand links und rechts (je 12 px, Buchstaben ragen etwas über)
-  const textWidth = Math.max(0, width - 24);
-  const fs = useMemo(
+  const fitW = useMemo(
     () => (lines && text && fontReady && textWidth ? fitFontSize(lines, text, textWidth) : 20),
     [lines, text, fontReady, textWidth],
   );
+  // Die ganze Seite passt ohne Scrollen auf den Bildschirm: Zeilenhöhe füllt den freien Platz,
+  // nur wenn der nicht reicht, wird die Schrift kleiner.
+  let fs = fitW;
+  let lineH = fitW * 1.9;
+  if (!trans && lines && vpHeight) {
+    const per = (vpHeight - PAGE_PAD_V) / lines.length;
+    lineH = Math.min(fitW * 2.1, per);
+    // unter 1,7 Zeilenhöhen stoßen Zeichen mit Vokalzeichen an die Nachbarzeilen
+    if (lineH < fitW * 1.7) {
+      fs = Math.max(MIN_FS, per / 1.7);
+      lineH = per;
+    }
+  }
 
   // ---------- Hifz-Modus ----------
   // Im Mushaf wird Zeile für Zeile aufgedeckt, mit Übersetzung Ajah für Ajah
@@ -332,14 +369,24 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
   const title = suras.length <= 3 ? suras.map(suraName).join(' · ') : `${suraName(suras[0])} – ${suraName(suras[suras.length - 1])}`;
 
   return (
-    <div>
+    <div className={trans ? 'reader' : 'reader fit'}>
       <div className="reader-head">
         <div className="reader-bar">
           <button type="button" className="backbtn" aria-label="Zurück zur Suren-Übersicht" onClick={backToIndex}>
             <Icon name="next" />
-            Suren
           </button>
-          <span style={{ flex: 1 }} />
+          <div className="sura-title">
+            <h2>{title}</h2>
+            <div>
+              {single ? `Ajah ${a1 === a2 ? a1 : `${a1}–${a2}`}` : pageRangeLabel(ed, page)} · S. {page} · Juz {juz}
+            </div>
+          </div>
+          {single && <span className="sura-ar">{SURAS[suras[0] - 1].ar}</span>}
+          {tajweed && (
+            <button type="button" className="iconbtn" aria-label="Tajwīd-Farben erklären" onClick={() => setLegend(true)}>
+              <Icon name="info" />
+            </button>
+          )}
           {IS_ARTIFACT ? (
             <a
               className="iconbtn"
@@ -363,47 +410,39 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
             </button>
           )}
         </div>
-        <div className="sura-title">
-          <div className="names">
-            <h2>{title}</h2>
-            <div>
-              {single ? `Ajah ${a1 === a2 ? a1 : `${a1}–${a2}`}` : pageRangeLabel(ed, page)} · Seite {page} · Juz {juz}
-            </div>
-          </div>
-          {single && <span className="ar">{SURAS[suras[0] - 1].ar}</span>}
+        <div className="switch-bar" role="group" aria-label="Ansicht">
+          <Switch
+            label="Verdecken"
+            on={hifz}
+            onChange={(v) => {
+              setHifz(v);
+              setRevealed(0);
+              setSel(null);
+            }}
+          />
+          <Switch label="Tajwīd" on={tajweed} onChange={setTajweed} />
+          <Switch
+            label="Übersetzung"
+            on={trans}
+            onChange={(v) => {
+              setTrans(v);
+              setRevealed(0);
+            }}
+          />
         </div>
-      </div>
-
-      <div className="switch-bar" role="group" aria-label="Ansicht">
-        <Switch
-          label="Verdecken"
-          on={hifz}
-          onChange={(v) => {
-            setHifz(v);
-            setRevealed(0);
-            setSel(null);
-          }}
-        />
-        <Switch label="Tajwīd" on={tajweed} onChange={setTajweed} />
-        <Switch
-          label="Übersetzung"
-          on={trans}
-          onChange={(v) => {
-            setTrans(v);
-            setRevealed(0);
-          }}
-        />
       </div>
 
       <div
         className="mushaf-viewport"
+        ref={vp}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
         <div
-          className={trans ? 'mushaf ayah-view' : 'mushaf'}
+          key={page}
+          className={`${trans ? 'mushaf ayah-view' : 'mushaf'}${turn ? ` turn-${turn}` : ''}`}
           ref={box}
           style={{
             transform: dx ? `translateX(${dx * 0.6}px)` : undefined,
@@ -440,7 +479,7 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
                 .filter(Boolean)
                 .join(' ');
               return (
-                <div key={n} className={cls} style={{ minHeight: `${fs * 1.9}px` }}>
+                <div key={n} className={cls} style={{ height: `${lineH}px` }}>
                   <div className="mtext">
                     {line[0] === 'h' && (
                       <div className="sura-frame" style={{ fontSize: fs * 1.05 }}>
@@ -469,6 +508,12 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
               );
             })}
         </div>
+        {/* kurz eingeblendet nach dem Umblättern */}
+        {turn && (
+          <div key={`badge-${page}`} className="page-badge" aria-live="polite">
+            Seite {page}
+          </div>
+        )}
       </div>
 
       {counter !== null && (
@@ -484,17 +529,6 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
           <button type="button" className="btn primary" aria-label="Wiederholung zählen" onClick={() => setCounter(counter + 1)}>
             +1
           </button>
-        </div>
-      )}
-
-      {tajweed && (
-        <div className="tj-legend" aria-label="Tajwīd-Farben">
-          {TAJWEED_LEGEND.map((l) => (
-            <span key={l.c} title={l.hint}>
-              <i className={`dot tj-bg-${l.c}`} />
-              <b className={`tj-${l.c}`}>{l.label}</b> {l.hint}
-            </span>
-          ))}
         </div>
       )}
 
@@ -514,38 +548,35 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
       )}
 
       {hifz && (
-        <div className="switch-bar single">
-          <Switch label="Anfang und Ende jeder Ajah zeigen" on={hint === 'ayah'} onChange={(v) => setHint(v ? 'ayah' : 'lines')} />
+        <div className="hifz-tools">
+          <div className="switch-bar single">
+            <Switch label="Anfang und Ende jeder Ajah zeigen" on={hint === 'ayah'} onChange={(v) => setHint(v ? 'ayah' : 'lines')} />
+          </div>
+          <div className="hifz-bar">
+            <button type="button" className="btn primary" onClick={revealNext} disabled={revealed >= coverable.length}>
+              Nächste {unit}
+            </button>
+            <button type="button" className="btn" onClick={() => setRevealed(revealed >= coverable.length ? 0 : coverable.length)}>
+              {revealed >= coverable.length ? 'Neu verdecken' : 'Alles zeigen'}
+            </button>
+          </div>
         </div>
       )}
 
       {sel !== null && !hifz && !audio.state && <AyahBar ayah={sel} page={page} onClose={() => setSel(null)} />}
 
-      {hifz && (
-        <div className="hifz-bar">
-          <button type="button" className="btn primary" onClick={revealNext} disabled={revealed >= coverable.length}>
-            Nächste {unit}
-          </button>
-          <button type="button" className="btn" onClick={() => setRevealed(revealed >= coverable.length ? 0 : coverable.length)}>
-            {revealed >= coverable.length ? 'Neu verdecken' : 'Alles zeigen'}
-          </button>
-        </div>
+      {legend && (
+        <Sheet title="Tajwīd-Farben" onClose={() => setLegend(false)}>
+          <div className="tj-legend">
+            {TAJWEED_LEGEND.map((l) => (
+              <span key={l.c}>
+                <i className={`dot tj-bg-${l.c}`} />
+                <b className={`tj-${l.c}`}>{l.label}</b> {l.hint}
+              </span>
+            ))}
+          </div>
+        </Sheet>
       )}
-
-      <PageReview page={page} />
-
-      <div className="row" style={{ marginTop: 12 }}>
-        <button type="button" className="btn" style={{ flex: 1 }} disabled={page >= PAGE_COUNT} onClick={() => setPage(page + 1)}>
-          <Icon name="next" /> Weiter
-        </button>
-        <button type="button" className="btn" style={{ flex: 1 }} disabled={page <= 1} onClick={() => setPage(page - 1)}>
-          Zurück <Icon name="prev" />
-        </button>
-      </div>
-      <p className="small" style={{ textAlign: 'center' }}>
-        Wischen wie im Mushaf: nach rechts weiter, nach links zurück.
-        {hifz ? ` Beim Verdecken deckt ein Tipp auf die Seite die nächste ${unit} auf.` : ''}
-      </p>
 
       {listen && (
         <ListenSheet
@@ -724,41 +755,6 @@ function ListenSheet({
         </p>
       </div>
     </Sheet>
-  );
-}
-
-/** Diese Seite als Wiederholung außerhalb des Plans eintragen. */
-function PageReview({ page }: { page: number }) {
-  const { profile, today, update } = useStore();
-  if (!profile) return null;
-  const planned = profile.days[today]?.muraja;
-  const inPlan = !!planned && [...planned.pages, ...planned.extra].includes(page);
-  const current = profile.days[today]?.free?.find((f) => f.page === page)?.r;
-  const opts: { r: Rating; label: string }[] = [
-    { r: 'sitzt', label: 'sitzt' },
-    { r: 'wackelt', label: 'wackelt' },
-    { r: 'fehler', label: 'Fehler' },
-  ];
-  if (inPlan) return null;
-  return (
-    <div className="read-review">
-      <div style={{ fontWeight: 600, fontSize: 15 }}>
-        {current ? `S. ${page} heute zusätzlich wiederholt` : `S. ${page} zusätzlich wiederholt?`}
-      </div>
-      <div className="rate" role="group" aria-label={`Seite ${page} außerhalb des Plans bewerten`}>
-        {opts.map(({ r, label }) => (
-          <button
-            key={r}
-            type="button"
-            className={r}
-            aria-pressed={current === r}
-            onClick={() => update((p) => (current === r ? removeFreeReview(p, today, page) : logFreeReview(p, today, [page], r)))}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }
 

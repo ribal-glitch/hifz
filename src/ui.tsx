@@ -23,7 +23,8 @@ export function Icon({
     | 'tajweed'
     | 'translate'
     | 'learn'
-    | 'repeat';
+    | 'repeat'
+    | 'info';
 }) {
   const p = {
     fill: 'none',
@@ -156,6 +157,13 @@ export function Icon({
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 5v14M5 12h14" {...p} />
+        </svg>
+      );
+    case 'info':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8.5" {...p} />
+          <path d="M12 11v5.5M12 7.6v.2" {...p} />
         </svg>
       );
     case 'chevron':

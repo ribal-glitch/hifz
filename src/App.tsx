@@ -27,6 +27,8 @@ export function App() {
   const [active, setActive] = useState(startSlide);
   const [settings, setSettings] = useState(false);
   const [target, setTarget] = useState<ReadTarget | null>(null);
+  /** Eine Mushaf-Seite ist geöffnet: am Handy Vollbild nur mit dem Text */
+  const [reading, setReading] = useState(false);
   const slides = useRef<HTMLDivElement>(null);
 
   const go = useCallback((i: number, smooth = true) => {
@@ -74,7 +76,7 @@ export function App() {
       ) : !profile ? (
         <Who />
       ) : (
-        <div className={`app${audio.state ? ' has-player' : ''}`}>
+        <div className={`app${audio.state ? ' has-player' : ''}${reading && active === 0 ? ' reading' : ''}`}>
           <header className="topbar">
             <h1>{SLIDES[active]?.label}</h1>
             <button type="button" className="iconbtn" aria-label="Einstellungen" onClick={() => setSettings(true)}>
@@ -88,7 +90,7 @@ export function App() {
           <div className="slides" ref={slides} onScroll={onScroll}>
             <section className="slide" aria-label="Lesen" aria-hidden={active !== 0}>
               <div className="content">
-                <Read target={target} onTargetUsed={targetUsed} />
+                <Read target={target} onTargetUsed={targetUsed} onReading={setReading} />
               </div>
             </section>
             <section className="slide" aria-label="Lernen" aria-hidden={active !== 1}>
