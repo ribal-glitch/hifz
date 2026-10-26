@@ -5,29 +5,37 @@
 }
 
 /*
- * Gestaltung: ruhig wie ein gedruckter Mushaf. Papierton, Tinte, ein tiefes Grün
- * als einzige Akzentfarbe, feine Linien statt Schatten, Serifen für Überschriften.
- * Goldton nur als dezente Zierlinie (Sura-Rahmen, Seitenrand).
+ * Gestaltung: hell und ruhig. Hellgrauer Grund, weiße Flächen mit großen Rundungen und
+ * weichem Schatten statt Linien, fast schwarze Schrift und Pillen-Knöpfe. Farbe nur als
+ * zarte Pastelltöne: Mint (sitzt/auswendig), Himmelblau (Markierung, Dars), Sand, Rosé.
  */
 :root {
-  --bg: #f3eee3;
-  --surface: #faf7f0;
-  --surface-2: #ebe4d4;
-  --text: #221f1a;
-  --muted: #6f675a;
-  --faint: #9a917f;
-  --border: #ddd3bf;
-  --rule: #e6ddca;
-  --accent: #1f5a44;
-  --accent-ink: #faf7f0;
-  --accent-soft: #e1e9dc;
-  --gold: #a88a52;
-  --warn: #946012;
-  --warn-soft: #f3e5c6;
-  --err: #a23b2f;
-  --err-soft: #f2dcd4;
-  --page: #fdfaf2;
-  --radius: 10px;
+  --bg: #f1f1f0;
+  --surface: #ffffff;
+  --surface-2: #f4f4f3;
+  --track: #e7e7e5;
+  --text: #151515;
+  --muted: #6b6b6b;
+  --faint: #a3a3a3;
+  --border: #e1e1df;
+  --rule: #ececea;
+  --accent: #151515;
+  --accent-ink: #ffffff;
+  --accent-soft: #e6effa;
+  /* zarte Linie für Rahmen (früher Gold) */
+  --gold: #c5d5e8;
+  --ok: #2d6a41;
+  --ok-soft: #e2f1e4;
+  --sky: #2c5b8c;
+  --sky-soft: #e6effa;
+  --warn: #8a5a00;
+  --warn-soft: #fbf0d6;
+  --err: #b03a2e;
+  --err-soft: #fbe4e1;
+  --page: #ffffff;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 20px rgb(0 0 0 / 0.05);
   --tabbar-h: 62px;
   /* moderne Grotesk für Überschriften und Text; ʿ und ʾ kommen aus der Systemschrift */
   --serif: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -37,45 +45,57 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #141210;
-    --surface: #1b1815;
-    --surface-2: #25211c;
-    --text: #ebe4d6;
-    --muted: #a69c8b;
-    --faint: #7a7162;
-    --border: #36302a;
-    --rule: #2c2722;
-    --accent: #8fc3a6;
-    --accent-ink: #11201a;
-    --accent-soft: #213229;
-    --gold: #bf9f66;
-    --warn: #d9ae5f;
-    --warn-soft: #382c19;
-    --err: #e08a7c;
-    --err-soft: #3a221d;
-    --page: #191613;
+    --bg: #0f0f10;
+    --surface: #1a1a1c;
+    --surface-2: #222225;
+    --track: #2c2c30;
+    --text: #f2f2f2;
+    --muted: #a3a3a6;
+    --faint: #6d6d72;
+    --border: #2f2f33;
+    --rule: #26262a;
+    --accent: #f2f2f2;
+    --accent-ink: #111111;
+    --accent-soft: #1f2a39;
+    --gold: #34465c;
+    --ok: #86d3a0;
+    --ok-soft: #1b3124;
+    --sky: #93bbea;
+    --sky-soft: #1f2a39;
+    --warn: #e3b45c;
+    --warn-soft: #362c16;
+    --err: #f08b7f;
+    --err-soft: #3a2220;
+    --page: #161618;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
     color-scheme: dark;
   }
 }
 
 :root[data-theme='dark'] {
-  --bg: #141210;
-  --surface: #1b1815;
-  --surface-2: #25211c;
-  --text: #ebe4d6;
-  --muted: #a69c8b;
-  --faint: #7a7162;
-  --border: #36302a;
-  --rule: #2c2722;
-  --accent: #8fc3a6;
-  --accent-ink: #11201a;
-  --accent-soft: #213229;
-  --gold: #bf9f66;
-  --warn: #d9ae5f;
-  --warn-soft: #382c19;
-  --err: #e08a7c;
-  --err-soft: #3a221d;
-  --page: #191613;
+  --bg: #0f0f10;
+  --surface: #1a1a1c;
+  --surface-2: #222225;
+  --track: #2c2c30;
+  --text: #f2f2f2;
+  --muted: #a3a3a6;
+  --faint: #6d6d72;
+  --border: #2f2f33;
+  --rule: #26262a;
+  --accent: #f2f2f2;
+  --accent-ink: #111111;
+  --accent-soft: #1f2a39;
+  --gold: #34465c;
+  --ok: #86d3a0;
+  --ok-soft: #1b3124;
+  --sky: #93bbea;
+  --sky-soft: #1f2a39;
+  --warn: #e3b45c;
+  --warn-soft: #362c16;
+  --err: #f08b7f;
+  --err-soft: #3a2220;
+  --page: #161618;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
   color-scheme: dark;
 }
 
@@ -180,8 +200,8 @@ html.artifact .topbar {
 
 .topbar h1 {
   font-family: var(--serif);
-  letter-spacing: -0.025em;
-  font-size: 27px;
+  letter-spacing: -0.035em;
+  font-size: 30px;
   line-height: 1.15;
   margin: 0;
   flex: 1;
@@ -232,7 +252,7 @@ html.artifact .topbar {
   z-index: 30;
   display: flex;
   background: var(--surface);
-  border-top: 1px solid var(--border);
+  box-shadow: 0 -1px 0 var(--rule);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -257,11 +277,12 @@ html.artifact .tabbar {
 }
 
 .tabbar button[aria-current='page'] {
-  color: var(--accent);
+  color: var(--text);
 }
 
 /* gleitende Markierung über der aktiven Seite */
 .tab-indicator {
+  display: none;
   position: absolute;
   top: -1px;
   left: 0;
@@ -279,9 +300,18 @@ html.artifact .tabbar {
   border-radius: 0 0 2px 2px;
 }
 
+/* aktive Seite: Symbol in einer zarten Pille */
 .tabbar svg {
-  width: 25px;
-  height: 25px;
+  width: 24px;
+  height: 24px;
+  box-sizing: content-box;
+  padding: 4px 18px;
+  border-radius: 999px;
+  transition: background 0.2s ease-out;
+}
+
+.tabbar button[aria-current='page'] svg {
+  background: var(--sky-soft);
 }
 
 /* Einstellungen als eigene Ebene über der App */
@@ -307,8 +337,8 @@ html.artifact .tabbar {
 .card {
   background: var(--surface);
   border-radius: var(--radius);
-  border: 1px solid var(--border);
-  padding: 18px;
+  box-shadow: var(--shadow);
+  padding: 20px;
   margin-bottom: 14px;
 }
 
@@ -357,10 +387,10 @@ html.artifact .tabbar {
 
 .btn {
   min-height: 48px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  border-radius: 999px;
+  border: 1px solid var(--text);
   background: var(--surface);
-  padding: 0 16px;
+  padding: 0 20px;
   font-weight: 600;
   font-size: 16px;
   display: inline-flex;
@@ -384,11 +414,15 @@ html.artifact .tabbar {
 .btn.ghost {
   background: transparent;
   border-color: transparent;
-  color: var(--accent);
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
 }
 
 .btn.danger {
   color: var(--err);
+  border-color: var(--err);
 }
 
 .btn.block {
@@ -463,7 +497,7 @@ html.artifact .tabbar {
   height: 48px;
   flex: none;
   border-radius: 50%;
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--faint);
   background: var(--surface);
   display: grid;
   place-items: center;
@@ -535,18 +569,17 @@ html.artifact .tabbar {
 /* Segmentierte Auswahl */
 .seg {
   display: flex;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  padding: 3px;
-  gap: 3px;
-  background: var(--surface);
+  border-radius: 999px;
+  padding: 4px;
+  gap: 4px;
+  background: var(--track);
 }
 
 .seg button {
   flex: 1;
-  min-height: 44px;
+  min-height: 42px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 999px;
   background: transparent;
   font-weight: 600;
   font-size: 15px;
@@ -555,8 +588,9 @@ html.artifact .tabbar {
 }
 
 .seg button[aria-pressed='true'] {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
 }
 
 /* Bewertungsknöpfe */
@@ -569,7 +603,7 @@ html.artifact .tabbar {
 
 .rate button {
   min-height: 48px;
-  border-radius: 8px;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface);
   font-weight: 600;
@@ -578,20 +612,20 @@ html.artifact .tabbar {
 }
 
 .rate button[aria-pressed='true'].sitzt {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ok-soft);
+  border-color: var(--ok-soft);
+  color: var(--ok);
 }
 
 .rate button[aria-pressed='true'].wackelt {
   background: var(--warn-soft);
-  border-color: var(--warn);
+  border-color: var(--warn-soft);
   color: var(--warn);
 }
 
 .rate button[aria-pressed='true'].fehler {
   background: var(--err-soft);
-  border-color: var(--err);
+  border-color: var(--err-soft);
   color: var(--err);
 }
 
@@ -615,7 +649,7 @@ html.artifact .tabbar {
 textarea.note {
   width: 100%;
   min-height: 90px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface);
   padding: 12px 14px;
@@ -627,10 +661,10 @@ input.field,
 select.field {
   width: 100%;
   min-height: 48px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface);
-  padding: 0 12px;
+  padding: 0 14px;
 }
 
 label.lbl {
@@ -670,7 +704,7 @@ label.lbl {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgb(20 16 10 / 0.38);
+  background: rgb(0 0 0 / 0.3);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -683,7 +717,7 @@ label.lbl {
   max-width: 640px;
   max-height: 92dvh;
   overflow: auto;
-  border-radius: 16px 16px 0 0;
+  border-radius: 26px 26px 0 0;
   padding: 16px 18px calc(env(safe-area-inset-bottom) + 18px);
   animation: slideup 0.2s ease-out;
 }
@@ -717,8 +751,8 @@ label.lbl {
   transform: translateX(-50%);
   background: var(--text);
   color: var(--bg);
-  padding: 12px 18px;
-  border-radius: 10px;
+  padding: 12px 20px;
+  border-radius: 999px;
   font-weight: 600;
   z-index: 60;
   animation: fade 0.2s;
@@ -740,24 +774,19 @@ label.lbl {
 .ornament::after {
   content: '';
   flex: 1;
-  height: 3px;
-  border-top: 1px solid currentColor;
-  border-bottom: 1px solid currentColor;
-  opacity: 0.45;
+  height: 1px;
+  background: var(--rule);
 }
 
 .ornament i {
-  width: 7px;
-  height: 7px;
-  border: 1px solid currentColor;
-  transform: rotate(45deg);
+  display: none;
 }
 
 .section-title {
   font-family: var(--serif);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-  font-size: 21px;
+  font-size: 23px;
   font-weight: 700;
   margin: 26px 2px 10px;
 }
@@ -770,7 +799,7 @@ label.lbl {
 .hint {
   font-size: 14px;
   color: var(--muted);
-  border-left: 2px solid var(--gold);
+  border-left: 3px solid var(--sky-soft);
   padding: 2px 0 2px 10px;
   margin: 10px 0 0;
 }
@@ -812,7 +841,7 @@ label.lbl {
   width: 22px;
   height: 4px;
   border-radius: 2px;
-  background: var(--surface-2);
+  background: var(--track);
 }
 
 .progress-dots i.on {
@@ -846,8 +875,9 @@ label.lbl {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 1.5px solid var(--border);
+  border: 0;
   background: var(--surface);
+  box-shadow: var(--shadow);
   display: grid;
   place-items: center;
   font-family: var(--serif);
@@ -912,9 +942,9 @@ label.lbl {
 
 .panel {
   background: var(--surface);
-  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
   border-radius: var(--radius);
-  padding: 4px 14px;
+  padding: 4px 16px;
   margin-top: 12px;
 }
 
@@ -945,7 +975,7 @@ label.lbl {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 17px;
-  color: var(--gold);
+  color: var(--faint);
   width: 16px;
   flex: none;
   text-align: center;
@@ -974,9 +1004,9 @@ label.lbl {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   margin-top: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
+  box-shadow: var(--shadow);
 }
 
 .weekstrip div {
@@ -1000,12 +1030,12 @@ label.lbl {
 }
 
 .weekstrip div.now {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--sky-soft);
+  color: var(--sky);
 }
 
 .weekstrip div.now b {
-  color: var(--accent-ink);
+  color: var(--sky);
 }
 
 .weekstrip div.past {
@@ -1059,7 +1089,7 @@ label.lbl {
 }
 
 .ring-track {
-  stroke: var(--surface-2);
+  stroke: var(--track);
 }
 
 .ring-val {
@@ -1076,7 +1106,7 @@ label.lbl {
 
 .juz {
   aspect-ratio: 1;
-  border-radius: 6px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   font-family: var(--serif);
@@ -1088,19 +1118,19 @@ label.lbl {
   color: var(--faint);
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid var(--rule);
   padding: 0;
 }
 
 .juz.full {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ok-soft);
+  border-color: var(--ok-soft);
+  color: var(--ok);
 }
 
 .juz.partial {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 35%, var(--rule));
 }
 
 .juz .fill {
@@ -1108,7 +1138,7 @@ label.lbl {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--accent-soft);
+  background: var(--ok-soft);
 }
 
 .juz span {
@@ -1150,7 +1180,7 @@ label.lbl {
 
 .cal .d {
   aspect-ratio: 1;
-  border-radius: 6px;
+  border-radius: 50%;
   border: 1px solid var(--rule);
   display: grid;
   place-items: center;
@@ -1159,14 +1189,16 @@ label.lbl {
 }
 
 .cal .d.complete {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ok-soft);
+  border-color: var(--ok-soft);
+  color: var(--ok);
+  font-weight: 700;
 }
 
 .cal .d.partial {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--warn-soft);
+  border-color: var(--warn-soft);
+  color: var(--warn);
 }
 
 .cal .d.future {
@@ -1180,8 +1212,9 @@ label.lbl {
 .stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
   margin: 4px 0 6px;
 }
 
@@ -1222,12 +1255,12 @@ label.lbl {
 }
 
 .milestones span.reached {
-  color: var(--accent);
+  color: var(--ok);
   font-weight: 600;
 }
 
 .celebrate {
-  border: 1px solid var(--gold);
+  background: var(--ok-soft);
   text-align: center;
   animation: pop 0.5s ease-out;
 }
@@ -1282,11 +1315,11 @@ label.lbl {
 }
 
 .index-row .state.auswendig {
-  color: var(--accent);
+  color: var(--ok);
 }
 
 .index-row .state.dars {
-  color: var(--warn);
+  color: var(--sky);
 }
 
 .index-row .state.teilweise {
@@ -1341,7 +1374,7 @@ label.lbl {
 .iconbtn {
   width: 48px;
   height: 48px;
-  border-radius: 8px;
+  border-radius: 50%;
   border: 1px solid transparent;
   background: transparent;
   display: grid;
@@ -1372,20 +1405,19 @@ label.lbl {
   overflow: hidden;
   touch-action: pan-y;
   margin: 0 -18px;
-  padding: 0 8px;
+  padding: 0 6px;
 }
 
 /* Seite mit feinem Goldrahmen wie im gedruckten Mushaf */
+/* Seite als weiße Karte */
 .mushaf {
   background: var(--page);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 10px 10px 12px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px 12px 14px;
   user-select: none;
   -webkit-user-select: none;
   will-change: transform;
-  outline: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
-  outline-offset: -5px;
 }
 
 .mline {
@@ -1429,10 +1461,8 @@ label.lbl {
 
 .sura-frame {
   width: 100%;
-  border: 1px solid var(--gold);
-  outline: 1px solid color-mix(in srgb, var(--gold) 50%, transparent);
-  outline-offset: 2px;
-  border-radius: 2px;
+  background: var(--sky-soft);
+  border-radius: var(--radius-sm);
   text-align: center;
   font-family: 'KFGQPC Hafs', serif;
   line-height: 1.55;
@@ -1469,10 +1499,10 @@ label.lbl {
   align-items: center;
   gap: 10px;
   margin-top: 10px;
-  padding: 6px 6px 6px 14px;
-  border: 1px solid var(--border);
+  padding: 6px 6px 6px 16px;
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .counter .n {
@@ -1503,8 +1533,8 @@ label.lbl {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 6px 6px 14px;
-  border-radius: 12px;
+  padding: 6px 6px 6px 16px;
+  border-radius: var(--radius);
   background: var(--text);
   color: var(--bg);
   animation: slideup 0.2s ease-out;
@@ -1581,7 +1611,7 @@ label.lbl {
   flex: 1;
   height: 3px;
   border-radius: 2px;
-  background: var(--surface-2);
+  background: var(--track);
 }
 
 .steps i.on {
@@ -1596,7 +1626,7 @@ label.lbl {
 
 .pick-grid button {
   min-height: 52px;
-  border-radius: 6px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--surface);
   font-family: var(--serif);
@@ -1625,9 +1655,9 @@ label.lbl {
 }
 
 .chips-row button {
-  min-height: 48px;
-  min-width: 50px;
-  border-radius: 8px;
+  min-height: 46px;
+  min-width: 52px;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface);
   font-weight: 600;
@@ -1740,8 +1770,8 @@ pre.summary {
   align-items: center;
   gap: 4px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 2px 2px 2px 10px;
+  border-radius: 999px;
+  padding: 2px 2px 2px 12px;
   background: var(--surface);
   font-size: 14.5px;
 }
@@ -1761,10 +1791,10 @@ pre.summary {
 
 .read-review {
   margin-top: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
+  padding: 14px 16px;
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .read-review .rate {
@@ -1795,10 +1825,10 @@ pre.summary {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 6px 6px 14px;
-  border-radius: 12px;
+  padding: 6px 6px 6px 16px;
+  border-radius: var(--radius);
   background: var(--surface);
-  border: 1px solid var(--accent);
+  border: 0;
   box-shadow: 0 6px 24px rgb(0 0 0 / 0.12);
   animation: slideup 0.2s ease-out;
 }
@@ -1945,10 +1975,10 @@ a.btn.primary {
 .continue {
   width: 100%;
   text-align: left;
-  border: 1px solid var(--accent);
-  background: var(--accent-soft);
+  border: 0;
+  background: var(--sky-soft);
   border-radius: var(--radius);
-  padding: 12px 16px;
+  padding: 14px 18px;
   min-height: 56px;
   display: flex;
   flex-direction: column;
@@ -1957,7 +1987,7 @@ a.btn.primary {
 
 .continue b {
   font-size: 17px;
-  color: var(--accent);
+  color: var(--sky);
 }
 
 .reader-bar .iconbtn {
@@ -1971,24 +2001,23 @@ a.btn.primary {
   z-index: 5;
   background: var(--bg);
   margin: 0 -18px;
-  padding: 0 18px 8px;
-  border-bottom: 1px solid var(--rule);
+  padding: 2px 18px 10px;
 }
 
 .reader-head .reader-bar {
-  margin: 0;
+  margin: 0 0 6px;
 }
 
 .backbtn {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  min-height: 44px;
-  padding: 0 10px 0 2px;
-  margin-left: -6px;
-  border: 0;
-  background: none;
-  color: var(--accent);
+  min-height: 40px;
+  padding: 0 16px 0 8px;
+  border: 1px solid var(--text);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
   font-weight: 600;
   font-size: 17px;
 }
@@ -2012,8 +2041,8 @@ a.btn.primary {
 .sura-title h2 {
   margin: 0;
   font-family: var(--serif);
-  letter-spacing: -0.025em;
-  font-size: 26px;
+  letter-spacing: -0.035em;
+  font-size: 28px;
   line-height: 1.15;
   font-weight: 700;
 }
@@ -2026,9 +2055,9 @@ a.btn.primary {
 
 .sura-title .ar {
   font-family: 'KFGQPC Hafs', serif;
-  font-size: 28px;
+  font-size: 30px;
   line-height: 1.3;
-  color: var(--accent);
+  color: var(--sky);
   flex: none;
 }
 
@@ -2036,10 +2065,10 @@ a.btn.primary {
 .switch-bar {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  margin: 10px 0;
-  border: 1px solid var(--border);
+  margin: 4px 0 12px;
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .switch-bar.single {
@@ -2071,11 +2100,11 @@ a.btn.primary {
 .switch .track {
   position: relative;
   flex: none;
-  width: 36px;
+  width: 38px;
   height: 22px;
   border-radius: 11px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: var(--track);
+  border: 1px solid var(--track);
   transition: background 0.15s ease-out;
 }
 
@@ -2097,7 +2126,7 @@ a.btn.primary {
 }
 
 .switch.on .knob {
-  transform: translateX(14px);
+  transform: translateX(16px);
 }
 
 /* Auf schmalen Handys: Schalter über der Beschriftung */
@@ -2118,7 +2147,7 @@ a.btn.primary {
 }
 
 .ayah-view .sura-frame {
-  font-size: 24px;
+  font-size: clamp(28px, 4vw + 14px, 36px);
   margin: 8px 0 4px;
 }
 
@@ -2138,8 +2167,9 @@ a.btn.primary {
   flex-wrap: wrap;
   gap: 0.15em 0.3em;
   font-family: 'KFGQPC Hafs', serif;
-  font-size: 26px;
-  line-height: 1.85;
+  /* so groß wie die Mushaf-Seite am Rechner: am Handy ca. 31 px, breit bis 38 px */
+  font-size: clamp(30px, 5vw + 12px, 38px);
+  line-height: 1.9;
 }
 
 .ayah-ar.basmala {
@@ -2148,9 +2178,8 @@ a.btn.primary {
 }
 
 .ayah-item {
-  padding: 12px 0;
+  padding: 14px 4px;
   border-top: 1px solid var(--rule);
-  border-radius: 3px;
 }
 
 .ayah-view .sura-frame + .ayah-item,
@@ -2161,6 +2190,8 @@ a.btn.primary {
 .ayah-item.sel,
 .ayah-item.playing {
   background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  border-top-color: transparent;
 }
 
 .ayah-item .tr-ayah {
@@ -2230,19 +2261,21 @@ a.btn.primary {
 }
 
 .state-pill.auswendig {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ok-soft);
+  border-color: var(--ok-soft);
+  color: var(--ok);
 }
 
 .state-pill.dars {
-  border-color: var(--warn);
-  color: var(--warn);
+  background: var(--sky-soft);
+  border-color: var(--sky-soft);
+  color: var(--sky);
 }
 
 .state-pill.teilweise {
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
-  color: var(--accent);
+  background: var(--warn-soft);
+  border-color: var(--warn-soft);
+  color: var(--warn);
 }
 
 .ayah-end {

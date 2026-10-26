@@ -12,7 +12,7 @@ if (!js || !css) throw new Error('Build-Dateien nicht gefunden');
 const jsText = readFileSync(join(dir, js), 'utf8').replace(/<\/script/gi, '<\\/script');
 const cssText = readFileSync(join(dir, css), 'utf8').replace(/<\/style/gi, '<\\/style');
 const page = `<title>Hifz</title>
-<meta name="theme-color" content="#f3eee3">
+<meta name="theme-color" content="#f1f1f0">
 <style>${cssText}</style>
 <div id="root"></div>
 <script type="module">${jsText}</script>

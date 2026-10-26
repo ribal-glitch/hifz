@@ -25,7 +25,7 @@ import { suraStatus } from '../logic/stats';
 import type { ReadTarget } from './Today';
 
 const FONT = '"KFGQPC Hafs"';
-const GAP_EM = 0.2;
+const GAP_EM = 0.16;
 const MAX_FS = 30;
 const MIN_FS = 14;
 
@@ -72,7 +72,7 @@ function lineWords(line: LineData, text: TextData): string[] {
 /** Größte Schriftgröße, bei der jede Zeile der Seite in die Breite passt. */
 function fitFontSize(lines: LineData[], text: TextData, width: number): number {
   // Obergrenze relativ zur Breite, damit locker gesetzte Seiten nicht sprunghaft größer werden
-  let fs = Math.min(MAX_FS, width * 0.057);
+  let fs = Math.min(MAX_FS, width * 0.064);
   for (const line of lines) {
     if (line[0] !== 't') continue;
     const words = lineWords(line, text);
@@ -217,8 +217,8 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
       setFontReady(true);
     });
   }, []);
-  // Seitenrand: Innenabstand links und rechts
-  const textWidth = Math.max(0, width - 22);
+  // Seitenrand: Innenabstand links und rechts (je 12 px, Buchstaben ragen etwas über)
+  const textWidth = Math.max(0, width - 24);
   const fs = useMemo(
     () => (lines && text && fontReady && textWidth ? fitFontSize(lines, text, textWidth) : 20),
     [lines, text, fontReady, textWidth],

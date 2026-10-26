@@ -54,7 +54,7 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
     <div>
       {celebrated && (
         <section className="card celebrate">
-          <div className="eyebrow" style={{ color: 'var(--gold)' }}>
+          <div className="eyebrow" style={{ color: 'var(--ok)' }}>
             Meilenstein erreicht
           </div>
           <div className="big" style={{ margin: '6px 0' }}>
@@ -136,11 +136,11 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
       </div>
       <div className="legend">
         <span>
-          <i style={{ background: 'var(--accent)', borderColor: 'var(--accent)' }} />
+          <i style={{ background: 'var(--ok-soft)', borderColor: 'var(--ok)', borderRadius: '50%' }} />
           Einheit erledigt
         </span>
         <span>
-          <i style={{ background: 'var(--accent-soft)' }} />
+          <i style={{ background: 'var(--warn-soft)', borderColor: 'var(--warn)', borderRadius: '50%' }} />
           teilweise
         </span>
       </div>
@@ -191,11 +191,11 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
       </div>
       <div className="legend">
         <span>
-          <i style={{ background: 'var(--accent)', borderColor: 'var(--accent)' }} />
+          <i style={{ background: 'var(--ok-soft)', borderColor: 'var(--ok)' }} />
           voll
         </span>
         <span>
-          <i style={{ borderColor: 'var(--accent)', background: 'var(--accent-soft)' }} />
+          <i style={{ borderColor: 'var(--ok)', background: 'var(--ok-soft)' }} />
           teilweise
         </span>
         <span>
