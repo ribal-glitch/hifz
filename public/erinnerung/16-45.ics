@@ -1,0 +1,22 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Hifz//Abend-Erinnerung//DE
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:hifz-erinnerung-1645@ribal-glitch.github.io
+DTSTAMP:20261026T000000Z
+DTSTART:20260101T164500
+DURATION:PT20M
+RRULE:FREQ=DAILY
+SUMMARY:Hifz – deine Einheit
+DESCRIPTION:Dars\, frische Seiten und Murājaʿa. App öffnen: https://riba
+ l-glitch.github.io/hifz/
+URL:https://ribal-glitch.github.io/hifz/
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Zeit für deine Hifz-Einheit
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+END:VCALENDAR

@@ -3,6 +3,7 @@ import { BestandEditor } from '../components/BestandEditor';
 import { WEEKDAYS, WEEKDAYS_SHORT } from '../logic/dates';
 import { RECITERS, REPEAT_OPTIONS, reciterById } from '../audio';
 import { IS_ARTIFACT } from '../platform';
+import { DEFAULT_REMINDER, REMINDER_TIMES, reminderFile, reminderIcs } from '../logic/reminder';
 import { ACCOUNTS_ENABLED } from '../account';
 import { darsPage, effectiveBestand, replanIfUntouched, rotationInfo, setDarsEnabled, setDarsPage, setDarsWeekday } from '../logic/plan';
 import { AVATAR_COLORS, MURAJA_OPTIONS } from '../logic/profile';
@@ -19,6 +20,21 @@ export function Settings() {
   const [pendingImport, setPendingImport] = useState<ReturnType<typeof parseProfileFile>>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [showMethod, setShowMethod] = useState(false);
+  const [reminder, setReminderState] = useState(() => {
+    try {
+      return localStorage.getItem('hifz:reminder') || DEFAULT_REMINDER;
+    } catch {
+      return DEFAULT_REMINDER;
+    }
+  });
+  const setReminder = (t: string) => {
+    setReminderState(t);
+    try {
+      localStorage.setItem('hifz:reminder', t);
+    } catch {
+      /* egal */
+    }
+  };
   const fileRef = useRef<HTMLInputElement>(null);
   if (!profile) return null;
 
@@ -229,12 +245,64 @@ export function Settings() {
             ))}
           </div>
         </div>
+        <div>
+          <label className="lbl">Nachsprech-Pause nach jeder Ajah</label>
+          <Seg<string>
+            label="Nachsprech-Pause"
+            value={profile.echoPause ? 'an' : 'aus'}
+            onChange={(v) => update((p) => ({ ...p, echoPause: v === 'an' }))}
+            options={[
+              { value: 'aus', label: 'Aus' },
+              { value: 'an', label: 'An' },
+            ]}
+          />
+        </div>
         <p className="small" style={{ margin: 0 }}>
-          Für das Auswendiglernen hilft ein ruhiger Murattal-Vortrag und immer derselbe Rezitator. Die Muʿallim-Aufnahme von al-Ḥuṣarī ist
+          Tipp: Beim Lesen eine Ajah antippen, dann läuft sie in Schleife. Mit Nachsprech-Pause bleibt nach jeder Wiederholung so viel Zeit,
+          wie die Ajah dauert. Für das Auswendiglernen hilft ein ruhiger Murattal-Vortrag und immer derselbe Rezitator. Die Muʿallim-Aufnahme von al-Ḥuṣarī ist
           zum Nachsprechen gedacht. Audio von EveryAyah.com, nur mit Internet.
         </p>
       </section>
       )}
+
+      <div className="section-title">Abend-Erinnerung</div>
+      <section className="card stack">
+        <p style={{ margin: 0 }}>
+          Dein Handy erinnert dich jeden Abend an die Einheit – über den Kalender, also auch wenn die App geschlossen ist.
+        </p>
+        <div>
+          <label className="lbl" htmlFor="reminder-time">
+            Uhrzeit
+          </label>
+          <select id="reminder-time" className="field" value={reminder} onChange={(e) => setReminder(e.target.value)}>
+            {REMINDER_TIMES.map((t) => (
+              <option key={t} value={t}>
+                {t} Uhr
+              </option>
+            ))}
+          </select>
+        </div>
+        {IS_ARTIFACT ? (
+          <button
+            type="button"
+            className="btn primary block"
+            onClick={async () => {
+              const r = await saveFile(`hifz-erinnerung-${reminderFile(reminder)}`, reminderIcs(reminder));
+              if (r === 'unavailable') toast('Speichern als Datei ist hier nicht möglich.');
+            }}
+          >
+            In den Kalender eintragen
+          </button>
+        ) : (
+          <a className="btn primary block" href={`./erinnerung/${reminderFile(reminder)}`} target="_blank" rel="noopener noreferrer">
+            In den Kalender eintragen
+          </a>
+        )}
+        <p className="small" style={{ margin: 0 }}>
+          Danach „Alle hinzufügen“ bzw. „Speichern“ wählen. Uhrzeit ändern oder Erinnerung löschen geht in der Kalender-App beim Termin
+          „Hifz – deine Einheit“.
+        </p>
+      </section>
 
       <div className="section-title">Darstellung</div>
       <section className="card">

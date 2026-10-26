@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { addDays, formatDayMonth, WEEKDAYS_SHORT } from '../logic/dates';
+import { addDays, daysBetween, formatDayMonth, formatMonthYear, WEEKDAYS_SHORT } from '../logic/dates';
 import { reviewedCount, rotationInfo } from '../logic/plan';
 import { SURAS, formatDecimal, juzPages } from '../logic/quran';
 import {
   MILESTONES,
+  PACE_OPTIONS,
+  defaultPace,
+  hafizEstimate,
   calendar,
   consolidation,
   juzStatus,
@@ -92,6 +95,8 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
           </div>
         )}
       </section>
+
+      <GoalCard />
 
       <div className="ornament" aria-hidden="true">
         <i />
@@ -245,5 +250,53 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
         })}
       </div>
     </div>
+  );
+}
+
+const paceLabel = (n: number) => (n === 0.5 ? '½' : String(n));
+
+/** Ziel-Rechner: Bei welchem Tempo ist der ganze Quran wann auswendig? */
+function GoalCard() {
+  const { profile, today, update } = useStore();
+  if (!profile) return null;
+  const pace = defaultPace(profile);
+  const est = hafizEstimate(profile, today, pace);
+  if (est.left === 0) {
+    return (
+      <section className="card celebrate" style={{ marginTop: 18 }}>
+        <div className="big">Alḥamdulillāh</div>
+        <div className="sub">Alle 604 Seiten sind in deinem Bestand.</div>
+      </section>
+    );
+  }
+  const years = daysBetween(today, est.date) / 365.25;
+  const others = PACE_OPTIONS.filter((p) => p !== pace && p >= 1 && p <= 3).slice(0, 2);
+  return (
+    <section className="card" style={{ marginTop: 18 }}>
+      <div className="eyebrow">Hafiz-Ziel</div>
+      <div className="serif" style={{ fontSize: 24, lineHeight: 1.25, margin: '4px 0 2px' }}>
+        {formatMonthYear(est.date)}
+      </div>
+      <div className="sub">
+        Noch {est.left} Seiten. Bei {paceLabel(pace)} neuen {pace === 1 ? 'Seite' : 'Seiten'} pro Woche ist der ganze Quran in etwa{' '}
+        {years < 1 ? `${Math.max(1, Math.round(years * 12))} Monaten` : `${years.toFixed(1).replace('.', ',')} Jahren`} auswendig.
+      </div>
+      <label className="lbl" style={{ marginTop: 12 }}>
+        Neue Seiten pro Woche
+      </label>
+      <div className="chips-row">
+        {PACE_OPTIONS.map((n) => (
+          <button key={n} type="button" aria-pressed={pace === n} onClick={() => update((p) => ({ ...p, goalPace: n }))}>
+            {paceLabel(n)}
+          </button>
+        ))}
+      </div>
+      {others.length > 0 && (
+        <p className="small" style={{ margin: '10px 0 0' }}>
+          {others.map((o) => `Mit ${paceLabel(o)} pro Woche: ${formatMonthYear(hafizEstimate(profile, today, o).date)}`).join(' · ')}
+        </p>
+      )}
+      <p className="hint">Mehr neue Seiten heißt auch mehr Murājaʿa jeden Tag. Das Tempo am besten mit deinem Sheikh festlegen.</p>
+    </section>
   );
 }

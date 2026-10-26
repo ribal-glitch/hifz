@@ -124,3 +124,17 @@ export function markMilestonesSeen(profile: Profile, date: ISODate): Profile {
   const seen = new Set([...profile.milestonesSeen, ...reachedMilestones(profile, date)]);
   return { ...profile, milestonesSeen: [...seen].sort((a, b) => a - b) };
 }
+
+export const PACE_OPTIONS = [0.5, 1, 2, 3, 5, 7];
+
+/** Wann wäre der ganze Quran auswendig, bei gleichbleibendem Tempo (neue Seiten pro Woche)? */
+export function hafizEstimate(profile: Profile, date: ISODate, pagesPerWeek: number): { left: number; weeks: number; date: ISODate } {
+  const left = PAGE_COUNT - effectiveBestand(profile, date).size;
+  const weeks = left > 0 ? Math.ceil(left / pagesPerWeek) : 0;
+  return { left, weeks, date: addDays(date, weeks * 7) };
+}
+
+/** Standard-Tempo: gewählter Wert, sonst 1 Seite pro Woche (Dars-Rhythmus). */
+export function defaultPace(profile: Profile): number {
+  return profile.goalPace ?? 1;
+}

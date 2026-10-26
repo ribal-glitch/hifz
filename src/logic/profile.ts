@@ -81,6 +81,10 @@ export interface Profile {
   reciter?: string;
   /** Wiederholungen pro Ajah beim Anhören */
   repeatEach?: number;
+  /** Nachsprech-Pause nach jeder Ajah */
+  echoPause?: boolean;
+  /** Tempo für den Ziel-Rechner: neue Seiten pro Woche */
+  goalPace?: number;
   /** Zeitpunkt der letzten Änderung, zum Abgleich zwischen Geräten */
   updatedAt?: string;
 }

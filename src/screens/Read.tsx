@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { RECITERS, REPEAT_OPTIONS, listenUrl, reciterById, useAudio } from '../audio';
-import { IS_ARTIFACT } from '../platform';
-import { useMushafData, type LineData, type TextData } from '../data/quranData';
-import { JUZ_COUNT, PAGE_COUNT, SURAS, juzPages, pageJuz, pageRangeLabel, suraPages, type EditionId } from '../logic/quran';
+import { IS_ARTIFACT, quranComUrl } from '../platform';
+import { ayahKey, useMushafData, type LineData, type TextData } from '../data/quranData';
+import { JUZ_COUNT, PAGE_COUNT, SURAS, juzPages, pageJuz, pageRangeLabel, suraName, suraPages, type EditionId } from '../logic/quran';
 import { logFreeReview, removeFreeReview } from '../logic/plan';
 import type { Rating } from '../logic/profile';
 import { useStore } from '../store';
@@ -15,6 +15,17 @@ const MAX_FS = 30;
 const MIN_FS = 14;
 
 const lastPageKey = (id: string) => `hifz:lastPage:${id}`;
+
+type HintMode = 'lines' | 'first' | 'ayah';
+const HINT_KEY = 'hifz:hint';
+function readHint(): HintMode {
+  try {
+    const v = localStorage.getItem(HINT_KEY);
+    return v === 'first' || v === 'ayah' ? v : 'lines';
+  } catch {
+    return 'lines';
+  }
+}
 
 function readLastPage(id: string): number {
   try {
@@ -72,12 +83,24 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
   const [jump, setJump] = useState(false);
   const [listen, setListen] = useState(false);
   const [counter, setCounter] = useState<number | null>(null);
+  const [hint, setHintState] = useState<HintMode>(readHint);
+  const setHint = (m: HintMode) => {
+    setHintState(m);
+    try {
+      localStorage.setItem(HINT_KEY, m);
+    } catch {
+      /* egal */
+    }
+  };
+  /** angetippte Ajah (globaler Index) für Schleife und Nachsprechen */
+  const [sel, setSel] = useState<number | null>(null);
 
   const setPage = useCallback(
     (p: number) => {
       const n = Math.max(1, Math.min(PAGE_COUNT, p));
       setPageState(n);
       setHl(null);
+      setSel(null);
       setRevealed(0);
       setCounter(null);
       if (profile) {
@@ -141,10 +164,10 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
   const revealNext = () => setRevealed((r) => Math.min(coverable.length, r + 1));
 
   // ---------- Wischen ----------
-  const drag = useRef<{ x: number; y: number; dx: number; active: boolean; moved: boolean } | null>(null);
+  const drag = useRef<{ x: number; y: number; dx: number; active: boolean; moved: boolean; target: EventTarget | null } | null>(null);
   const [dx, setDx] = useState(0);
   const onPointerDown = (e: React.PointerEvent) => {
-    drag.current = { x: e.clientX, y: e.clientY, dx: 0, active: false, moved: false };
+    drag.current = { x: e.clientX, y: e.clientY, dx: 0, active: false, moved: false, target: e.target };
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
@@ -167,6 +190,12 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
     if (d.active && d.dx > 70 && page < PAGE_COUNT) setPage(page + 1);
     else if (d.active && d.dx < -70 && page > 1) setPage(page - 1);
     else if (!d.moved && hifz) revealNext();
+    else if (!d.moved) {
+      // Tipp auf eine Ajah wählt sie zum Anhören in Schleife aus (nochmal tippen hebt die Auswahl auf)
+      const w = (d.target as HTMLElement | null)?.closest?.('[data-a]') as HTMLElement | null;
+      const a = w ? Number(w.dataset.a) : null;
+      setSel((cur) => (a === null || a === cur ? null : a));
+    }
   };
 
   if (!profile) return null;
@@ -192,6 +221,7 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
           onClick={() => {
             setHifz(!hifz);
             setRevealed(0);
+            setSel(null);
           }}
         >
           <Icon name="eye" />
@@ -245,7 +275,10 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
               const n = i + 1;
               const isHl = hl?.from !== undefined && hl.to !== undefined && n >= hl.from && n <= hl.to;
               const hidden = hiddenSet.has(n);
-              const cls = ['mline', isHl ? 'hl' : '', hl?.start === n ? 'start' : '', hidden ? 'hidden' : '', line[0] === 'h' ? 'sura-head' : '']
+              // Hinweis-Modi: nur einzelne Wörter bleiben sichtbar, der Rest wird ausgeblendet
+              const masked = hidden && hint !== 'lines';
+              const covered = hidden && hint === 'lines';
+              const cls = ['mline', isHl ? 'hl' : '', hl?.start === n ? 'start' : '', covered ? 'hidden' : '', line[0] === 'h' ? 'sura-head' : '']
                 .filter(Boolean)
                 .join(' ');
               return (
@@ -267,17 +300,29 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
                     )}
                     {line[0] === 't' && (
                       <div className="words" style={line[2] ? { width: `${line[2] * 100}%`, gap: `${GAP_EM}em` } : { gap: `${GAP_EM}em` }}>
-                        {line[1].flatMap(([idx, from, to]) =>
-                          text.ayahs[idx].slice(from, to).map((w, k) => (
-                            <span key={`${idx}-${from + k}`} className={`w${playingAyah === idx ? ' playing' : ''}`}>
-                              {w}
-                            </span>
-                          )),
-                        )}
+                        {(() => {
+                          let pos = 0;
+                          return line[1].flatMap(([idx, from, to]) =>
+                            text.ayahs[idx].slice(from, to).map((w, k) => {
+                              const wi = from + k;
+                              const isMarker = wi === text.ayahs[idx].length - 1;
+                              const show = hint === 'first' ? pos === 0 : wi === 0 || isMarker;
+                              pos++;
+                              const c = ['w', playingAyah === idx ? 'playing' : '', sel === idx ? 'sel' : '', masked && !show ? 'masked' : '']
+                                .filter(Boolean)
+                                .join(' ');
+                              return (
+                                <span key={`${idx}-${wi}`} className={c} data-a={idx}>
+                                  {w}
+                                </span>
+                              );
+                            }),
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
-                  {hidden && <div className="cover" aria-hidden="true" />}
+                  {covered && <div className="cover" aria-hidden="true" />}
                 </div>
               );
             })}
@@ -300,7 +345,22 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
         </div>
       )}
 
-      <PageReview page={page} />
+      {hifz && (
+        <div style={{ marginTop: 10 }}>
+          <Seg<HintMode>
+            label="Was beim Verdecken sichtbar bleibt"
+            value={hint}
+            onChange={setHint}
+            options={[
+              { value: 'lines', label: 'Verdeckt' },
+              { value: 'first', label: '1. Wort' },
+              { value: 'ayah', label: 'Ajah-Anfang' },
+            ]}
+          />
+        </div>
+      )}
+
+      {sel !== null && !hifz && !audio.state && <AyahBar ayah={sel} page={page} onClose={() => setSel(null)} />}
 
       {hifz && (
         <div className="hifz-bar">
@@ -312,6 +372,8 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
           </button>
         </div>
       )}
+
+      <PageReview page={page} />
 
       <div className="row" style={{ marginTop: 12 }}>
         <button type="button" className="btn" style={{ flex: 1 }} disabled={page >= PAGE_COUNT} onClick={() => setPage(page + 1)}>
@@ -470,6 +532,18 @@ function ListenSheet({
           </div>
         </div>
         <div>
+          <label className="lbl">Nachsprech-Pause nach jeder Ajah</label>
+          <Seg<string>
+            label="Nachsprech-Pause"
+            value={profile.echoPause ? 'an' : 'aus'}
+            onChange={(v) => update((p) => ({ ...p, echoPause: v === 'an' }))}
+            options={[
+              { value: 'aus', label: 'Aus' },
+              { value: 'an', label: 'An – so lang wie die Ajah' },
+            ]}
+          />
+        </div>
+        <div>
           <label className="lbl">Den ganzen Bereich</label>
           <div className="chips-row">
             {[1, 3, 5].map((n) => (
@@ -525,6 +599,62 @@ function PageReview({ page }: { page: number }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Leiste für eine angetippte Ajah: in Schleife hören, mit oder ohne Nachsprech-Pause. */
+function AyahBar({ ayah, page, onClose }: { ayah: number; page: number; onClose: () => void }) {
+  const { profile, update } = useStore();
+  const audio = useAudio();
+  if (!profile) return null;
+  const [s, a] = ayahKey(ayah);
+  const echo = profile.echoPause ?? false;
+  return (
+    <div className="ayah-bar" role="region" aria-label="Ausgewählte Ajah">
+      <div className="info">
+        <b>
+          {suraName(s)} {a}
+        </b>
+        <div>{IS_ARTIFACT ? 'auf quran.com' : 'in Schleife'}</div>
+      </div>
+      {IS_ARTIFACT ? (
+        <a className="btn primary" href={quranComUrl(s, a, a)} target="_blank" rel="noopener noreferrer">
+          <Icon name="play" /> Hören
+        </a>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="btn"
+            aria-pressed={echo}
+            onClick={() => update((p) => ({ ...p, echoPause: !echo }))}
+            title="Nach jeder Wiederholung eine Pause zum Nachsprechen"
+          >
+            {echo ? '✓ ' : ''}Nachsprechen
+          </button>
+          <button
+            type="button"
+            className="btn primary"
+            aria-label={`${suraName(s)} ${a} in Schleife hören`}
+            onClick={() =>
+              void audio.play({
+                edition: profile.edition,
+                page,
+                ayahs: [ayah],
+                loop: true,
+                echo,
+                label: `${suraName(s)} ${a} · Schleife${echo ? ' mit Nachsprech-Pause' : ''}`,
+              })
+            }
+          >
+            <Icon name="play" />
+          </button>
+        </>
+      )}
+      <button type="button" className="iconbtn" aria-label="Auswahl schließen" onClick={onClose}>
+        ×
+      </button>
     </div>
   );
 }

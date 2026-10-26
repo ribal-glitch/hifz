@@ -108,7 +108,12 @@ export function App() {
                   {audio.state.ayah === -1 || audio.state.ayah === null
                     ? 'Basmala'
                     : `${suraName(ayahKey(audio.state.ayah)[0])} ${ayahKey(audio.state.ayah)[1]}`}
-                  {audio.state.repeatEach > 1 ? ` · ${audio.state.rep}/${audio.state.repeatEach}` : ''}
+                  {audio.state.loop
+                    ? ` · ${audio.state.round}×`
+                    : audio.state.repeatEach > 1
+                      ? ` · ${audio.state.rep}/${audio.state.repeatEach}`
+                      : ''}
+                  {audio.state.echoing ? ' · jetzt nachsprechen' : ''}
                 </b>
                 <div>
                   {audio.state.label}

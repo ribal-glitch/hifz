@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, logicalToday, type ISODate } from './dates';
+import { addDays, formatMonthYear, logicalToday, type ISODate } from './dates';
 import {
   cardStatus,
   darsPage,
@@ -23,7 +23,7 @@ import {
 import { createProfile, ribalPreset, type Profile, type Rating } from './profile';
 import { addQuestion, newQuestion, rateQuestion } from './quiz';
 import { meta, pageRangeLabel, range, textLines } from './quran';
-import { calendar, juzStatus, markMilestonesSeen, newMilestones, progress, reachedMilestones, streak, suraStatus } from './stats';
+import { calendar, hafizEstimate, juzStatus, markMilestonesSeen, newMilestones, progress, reachedMilestones, streak, suraStatus } from './stats';
 import { claudeSummary } from './summary';
 
 const START: ISODate = '2026-10-25'; // Sonntag
@@ -394,6 +394,16 @@ describe('Fortschritt', () => {
     expect(newMilestones(seen, START)).toEqual([]);
     const more = { ...seen, bestand: [...seen.bestand, ...range(400, 420)] };
     expect(newMilestones(more, START)).toEqual([40]);
+  });
+});
+
+describe('Ziel-Rechner', () => {
+  it('schätzt das Datum, an dem der ganze Quran sitzt', () => {
+    const p = ribalPreset(START);
+    expect(hafizEstimate(p, START, 1)).toEqual({ left: 377, weeks: 377, date: addDays(START, 377 * 7) });
+    expect(hafizEstimate(p, START, 2).weeks).toBe(189);
+    expect(hafizEstimate(p, START, 0.5).weeks).toBe(754);
+    expect(formatMonthYear(hafizEstimate(p, START, 1).date)).toBe('Januar 2034');
   });
 });
 

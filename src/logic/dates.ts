@@ -74,3 +74,9 @@ export function formatDayMonth(s: ISODate): string {
   const d = parseISO(s);
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.`;
 }
+
+/** „März 2034“ */
+export function formatMonthYear(s: ISODate): string {
+  const d = parseISO(s);
+  return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}

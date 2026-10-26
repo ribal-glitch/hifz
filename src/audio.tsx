@@ -79,6 +79,13 @@ export interface PlayRequest {
   /** Wie oft der ganze Bereich läuft */
   rounds?: number;
   reciter?: string;
+  /** Bestimmte Ajat statt der Zeilen einer Seite (globale Indizes) */
+  ayahs?: number[];
+  label?: string;
+  /** endlos wiederholen, bis man stoppt */
+  loop?: boolean;
+  /** Nachsprech-Pause: nach jeder Ajah so lange Stille, wie die Ajah dauerte */
+  echo?: boolean;
 }
 
 export interface AudioState {
@@ -93,6 +100,10 @@ export interface AudioState {
   round: number;
   rounds: number;
   paused: boolean;
+  loop: boolean;
+  echo: boolean;
+  /** gerade in der Nachsprech-Pause */
+  echoing: boolean;
 }
 
 interface AudioCtx {
@@ -132,7 +143,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     el.current ??= new Audio();
     const audio = el.current;
     audio.src = audioUrl(j.reciter, s, a);
-    j.s = { ...j.s, ayah: idx, paused: false };
+    j.s = { ...j.s, ayah: idx, paused: false, echoing: false };
     setState(j.s);
     audio.play().catch(() => {
       /* Fehler meldet onerror */
@@ -145,13 +156,19 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const s = j.s;
     if (s.rep < s.repeatEach) j.s = { ...s, rep: s.rep + 1 };
     else if (s.index + 1 < j.list.length) j.s = { ...s, index: s.index + 1, rep: 1 };
-    else if (s.round < s.rounds) j.s = { ...s, index: 0, rep: 1, round: s.round + 1 };
+    else if (s.loop || s.round < s.rounds) j.s = { ...s, index: 0, rep: 1, round: s.round + 1 };
     else {
       stop();
       return;
     }
-    // kurze Pause zwischen den Wiederholungen, zum Nachsprechen
-    timer.current = window.setTimeout(playCurrent, 350);
+    // Nachsprech-Pause so lang wie die gehörte Ajah (1–30 s), sonst nur ein kurzer Atemzug
+    const dur = el.current?.duration ?? 0;
+    const wait = s.echo && Number.isFinite(dur) && dur > 0 ? Math.min(30_000, Math.max(1000, dur * 1000)) : 350;
+    if (s.echo) {
+      j.s = { ...j.s, echoing: true };
+      setState(j.s);
+    }
+    timer.current = window.setTimeout(playCurrent, wait);
   }, [playCurrent, stop]);
 
   useEffect(() => {
@@ -176,35 +193,52 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       stop();
       // Das Layout ist normalerweise schon geladen; dann startet die Wiedergabe noch
       // innerhalb der Tipp-Geste (wichtig für iOS).
-      const layout = cachedLayout(req.edition) ?? (await loadLayout(req.edition));
-      const list = ayahsForLines(layout, req.page, req.from, req.to);
+      const list =
+        req.ayahs ?? ayahsForLines(cachedLayout(req.edition) ?? (await loadLayout(req.edition)), req.page, req.from, req.to);
       if (!list.length) return;
       const reciter = req.reciter ?? profile?.reciter ?? DEFAULT_RECITER;
-      const repeatEach = req.repeatEach ?? profile?.repeatEach ?? 3;
-      const label = req.from ? `S. ${req.page}, Zeilen ${req.from}–${req.to}` : `S. ${req.page}`;
+      const repeatEach = req.loop ? 1 : (req.repeatEach ?? profile?.repeatEach ?? 3);
+      const label = req.label ?? (req.from ? `S. ${req.page}, Zeilen ${req.from}–${req.to}` : `S. ${req.page}`);
       job.current = {
         list,
         reciter,
-        s: { page: req.page, label, ayah: null, index: 0, total: list.length, rep: 1, repeatEach, round: 1, rounds: req.rounds ?? 1, paused: false },
+        s: {
+          page: req.page,
+          label,
+          ayah: null,
+          index: 0,
+          total: list.length,
+          rep: 1,
+          repeatEach,
+          round: 1,
+          rounds: req.rounds ?? 1,
+          paused: false,
+          loop: !!req.loop,
+          echo: req.echo ?? profile?.echoPause ?? false,
+          echoing: false,
+        },
       };
       playCurrent();
     },
-    [playCurrent, profile?.reciter, profile?.repeatEach, stop],
+    [playCurrent, profile?.reciter, profile?.repeatEach, profile?.echoPause, stop],
   );
 
   const toggle = useCallback(() => {
     const audio = el.current;
     const j = job.current;
     if (!audio || !j) return;
-    if (audio.paused) {
-      audio.play().catch(() => {});
+    if (j.s.paused) {
+      // aus der Pause (auch einer unterbrochenen Nachsprech-Pause) weiter
+      if (j.s.echoing) playCurrent();
+      else audio.play().catch(() => {});
       j.s = { ...j.s, paused: false };
     } else {
+      window.clearTimeout(timer.current);
       audio.pause();
       j.s = { ...j.s, paused: true };
     }
     setState(j.s);
-  }, []);
+  }, [playCurrent]);
 
   const value = useMemo(() => ({ state, play, toggle, stop }), [state, play, toggle, stop]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
