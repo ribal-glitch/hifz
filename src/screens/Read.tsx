@@ -2,11 +2,23 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { RECITERS, REPEAT_OPTIONS, listenUrl, reciterById, useAudio } from '../audio';
 import { IS_ARTIFACT, quranComUrl } from '../platform';
 import { ayahKey, useMushafData, type LineData, type TextData } from '../data/quranData';
-import { JUZ_COUNT, PAGE_COUNT, SURAS, juzPages, pageJuz, pageRangeLabel, suraName, suraPages, type EditionId } from '../logic/quran';
+import {
+  JUZ_COUNT,
+  PAGE_COUNT,
+  SURAS,
+  juzPages,
+  meta,
+  pageJuz,
+  pageRangeLabel,
+  suraName,
+  suraPages,
+  surasOnPage,
+  type EditionId,
+} from '../logic/quran';
 import { logFreeReview, removeFreeReview } from '../logic/plan';
 import type { Rating } from '../logic/profile';
 import { useStore } from '../store';
-import { Icon, Seg, Sheet } from '../ui';
+import { Icon, Seg, Sheet, Switch } from '../ui';
 import { TAJWEED_LEGEND, tajweedAyah, type Piece } from '../logic/tajweed';
 import { TRANSLATIONS, useTranslation, type TranslationId } from '../data/translations';
 import { suraStatus } from '../logic/stats';
@@ -19,12 +31,12 @@ const MIN_FS = 14;
 
 const lastPageKey = (id: string) => `hifz:lastPage:${id}`;
 
-type HintMode = 'lines' | 'first' | 'ayah';
+/** Was im Verdecken-Modus sichtbar bleibt: nichts oder Anfang und Ende jeder Ajah */
+type HintMode = 'lines' | 'ayah';
 const HINT_KEY = 'hifz:hint';
 function readHint(): HintMode {
   try {
-    const v = localStorage.getItem(HINT_KEY);
-    return v === 'first' || v === 'ayah' ? v : 'lines';
+    return localStorage.getItem(HINT_KEY) === 'ayah' ? 'ayah' : 'lines';
   } catch {
     return 'lines';
   }
@@ -99,9 +111,48 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
   const [sel, setSel] = useState<number | null>(null);
   /** Lesen beginnt mit der Suren-Übersicht; ein Sprungziel öffnet direkt die Seite */
   const [view, setView] = useState<'index' | 'page'>(() => (target ? 'page' : 'index'));
-  const [tajweed, setTajweed] = usePref<boolean>('hifz:tajweed', false);
-  const [trans, setTrans] = usePref<TranslationId | ''>('hifz:trans', '');
+  // Bei jedem Start: Tajwīd an, Übersetzung und Verdecken aus
+  const [tajweed, setTajweed] = useState(true);
+  const [trans, setTrans] = useState(false);
   const [transChoice, setTransChoice] = usePref<TranslationId>('hifz:transChoice', 'bubenheim');
+
+  // Die geöffnete Seite bekommt einen Verlaufseintrag, damit „Zurück“ (Wischgeste, Android-Taste,
+  // Browser) wieder zur Suren-Übersicht führt statt die App zu verlassen.
+  const pushed = useRef(false);
+  const openPage = useCallback(() => {
+    setView('page');
+    if (pushed.current) return;
+    try {
+      history.pushState({ hifzRead: 'page' }, '');
+      pushed.current = true;
+    } catch {
+      /* ohne Verlauf bleibt der Zurück-Knopf */
+    }
+  }, []);
+  const backToIndex = () => {
+    setView('index');
+    setSel(null);
+    if (pushed.current) {
+      pushed.current = false;
+      try {
+        history.back();
+      } catch {
+        /* egal */
+      }
+    }
+  };
+  useEffect(() => {
+    const onPop = () => {
+      if (!pushed.current) return;
+      pushed.current = false;
+      setView('index');
+      setSel(null);
+      setJump(false);
+      setListen(false);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const tjCache = useMemo(() => new Map<number, Piece[][]>(), [data]);
   const piecesOf = (idx: number, ayah: string[]) => {
     let v = tjCache.get(idx);
@@ -138,9 +189,9 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
     setHl({ from: target.from, to: target.to, start: target.startLine });
     setHifz(!!target.startLine);
     if (target.counter) setCounter(0);
-    setView('page');
+    openPage();
     onTargetUsed();
-  }, [target, setPage, onTargetUsed]);
+  }, [target, setPage, onTargetUsed, openPage]);
 
   const lines = data && data !== 'error' ? data.layout.pages[page - 1] : null;
   const text = data && data !== 'error' ? data.text : null;
@@ -174,12 +225,39 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
   );
 
   // ---------- Hifz-Modus ----------
+  // Im Mushaf wird Zeile für Zeile aufgedeckt, mit Übersetzung Ajah für Ajah
   const coverFrom = hl?.start ?? 1;
   const coverable = lines
-    ? lines.map((l, i) => (l[0] === 't' && i + 1 >= coverFrom ? i + 1 : 0)).filter(Boolean)
+    ? trans
+      ? pageAyahs(lines, coverFrom)
+      : lines.map((l, i) => (l[0] === 't' && i + 1 >= coverFrom ? i + 1 : 0)).filter(Boolean)
     : [];
   const hiddenSet = new Set(hifz ? coverable.slice(revealed) : []);
   const revealNext = () => setRevealed((r) => Math.min(coverable.length, r + 1));
+  const unit = trans ? 'Ajah' : 'Zeile';
+
+  /** Ein Wort der Ajah, mit Tajwīd-Farben und ggf. ausgeblendet (Hinweis-Modus). */
+  const renderWord = (idx: number, wi: number, w: string, masked: boolean, ayahWords: string[]) => {
+    const isMarker = wi === ayahWords.length - 1;
+    const hide = masked && !(wi === 0 || isMarker);
+    const c = ['w', playingAyah === idx ? 'playing' : '', sel === idx ? 'sel' : '', hide ? 'masked' : ''].filter(Boolean).join(' ');
+    const tj = tajweed && !hide && !isMarker ? piecesOf(idx, ayahWords)[wi] : null;
+    return (
+      <span key={`${idx}-${wi}`} className={c} data-a={idx}>
+        {tj
+          ? tj.map((p, pi) =>
+              p.c ? (
+                <span key={pi} className={`tj-${p.c}`}>
+                  {p.t}
+                </span>
+              ) : (
+                p.t
+              ),
+            )
+          : w}
+      </span>
+    );
+  };
 
   // ---------- Wischen ----------
   const drag = useRef<{ x: number; y: number; dx: number; active: boolean; moved: boolean; target: EventTarget | null } | null>(null);
@@ -226,7 +304,7 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
         lastPage={page}
         onOpen={(p) => {
           setPage(p);
-          setView('page');
+          openPage();
         }}
         onJump={() => setJump(true)}
         jumpSheet={
@@ -237,7 +315,7 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
               onGo={(p) => {
                 setPage(p);
                 setJump(false);
-                setView('page');
+                openPage();
               }}
             />
           )
@@ -246,65 +324,75 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
     );
   }
 
+  // Welche Sura gerade gelesen wird: groß oben, beim Scrollen fest stehend
+  const suras = surasOnPage(ed, page);
+  const single = suras.length === 1;
+  const [, a1] = meta(ed).pageFirst[page - 1];
+  const [, a2] = meta(ed).pageLast[page - 1];
+  const title = suras.length <= 3 ? suras.map(suraName).join(' · ') : `${suraName(suras[0])} – ${suraName(suras[suras.length - 1])}`;
+
   return (
     <div>
-      <div className="reader-bar">
-        <button type="button" className="iconbtn" aria-label="Zur Suren-Übersicht" onClick={() => setView('index')}>
-          <Icon name="list" />
-        </button>
-        <div className="info">
-          <b>S. {page}</b>
-          <div>
-            {pageRangeLabel(ed, page)} · Juz {juz}
-          </div>
+      <div className="reader-head">
+        <div className="reader-bar">
+          <button type="button" className="backbtn" aria-label="Zurück zur Suren-Übersicht" onClick={backToIndex}>
+            <Icon name="next" />
+            Suren
+          </button>
+          <span style={{ flex: 1 }} />
+          {IS_ARTIFACT ? (
+            <a
+              className="iconbtn"
+              href={listenUrl(ed, page, hl?.from, hl?.to)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Auf quran.com anhören"
+            >
+              <Icon name="play" />
+            </a>
+          ) : (
+            <button
+              type="button"
+              className="iconbtn"
+              aria-pressed={isPlayingHere}
+              aria-label={isPlayingHere ? 'Wiedergabe beenden' : 'Anhören'}
+              onClick={() => (isPlayingHere ? audio.stop() : setListen(true))}
+              disabled={!lines}
+            >
+              <Icon name={isPlayingHere ? 'pause' : 'play'} />
+            </button>
+          )}
         </div>
-        <button
-          type="button"
-          className="iconbtn"
-          aria-pressed={hifz}
-          aria-label="Hifz-Modus: Zeilen verdecken"
-          onClick={() => {
-            setHifz(!hifz);
+        <div className="sura-title">
+          <div className="names">
+            <h2>{title}</h2>
+            <div>
+              {single ? `Ajah ${a1 === a2 ? a1 : `${a1}–${a2}`}` : pageRangeLabel(ed, page)} · Seite {page} · Juz {juz}
+            </div>
+          </div>
+          {single && <span className="ar">{SURAS[suras[0] - 1].ar}</span>}
+        </div>
+      </div>
+
+      <div className="switch-bar" role="group" aria-label="Ansicht">
+        <Switch
+          label="Verdecken"
+          on={hifz}
+          onChange={(v) => {
+            setHifz(v);
             setRevealed(0);
             setSel(null);
           }}
-        >
-          <Icon name="eye" />
-        </button>
-        <button type="button" className="iconbtn" aria-pressed={tajweed} aria-label="Tajwīd-Farben" onClick={() => setTajweed(!tajweed)}>
-          <Icon name="tajweed" />
-        </button>
-        <button
-          type="button"
-          className="iconbtn"
-          aria-pressed={!!trans}
-          aria-label="Übersetzung einblenden"
-          onClick={() => setTrans(trans ? '' : transChoice)}
-        >
-          <Icon name="translate" />
-        </button>
-        {IS_ARTIFACT ? (
-          <a
-            className="iconbtn"
-            href={listenUrl(ed, page, hl?.from, hl?.to)}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Auf quran.com anhören"
-          >
-            <Icon name="play" />
-          </a>
-        ) : (
-          <button
-            type="button"
-            className="iconbtn"
-            aria-pressed={isPlayingHere}
-            aria-label={isPlayingHere ? 'Wiedergabe beenden' : 'Anhören'}
-            onClick={() => (isPlayingHere ? audio.stop() : setListen(true))}
-            disabled={!lines}
-          >
-            <Icon name={isPlayingHere ? 'pause' : 'play'} />
-          </button>
-        )}
+        />
+        <Switch label="Tajwīd" on={tajweed} onChange={setTajweed} />
+        <Switch
+          label="Übersetzung"
+          on={trans}
+          onChange={(v) => {
+            setTrans(v);
+            setRevealed(0);
+          }}
+        />
       </div>
 
       <div
@@ -315,18 +403,31 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
         onPointerCancel={onPointerUp}
       >
         <div
-          className="mushaf"
+          className={trans ? 'mushaf ayah-view' : 'mushaf'}
           ref={box}
           style={{
             transform: dx ? `translateX(${dx * 0.6}px)` : undefined,
             transition: dx ? 'none' : 'transform 0.2s ease-out',
-            fontSize: fs,
+            fontSize: trans ? undefined : fs,
           }}
           aria-label={`Mushaf Seite ${page}`}
         >
           {data === null && <div className="empty">Seite wird geladen …</div>}
           {data === 'error' && <div className="empty">Die Quran-Daten konnten nicht geladen werden. Bitte einmal mit Internet öffnen.</div>}
-          {lines &&
+          {trans && lines && text && (
+            <AyahView
+              lines={lines}
+              text={text}
+              transId={transChoice}
+              hidden={hiddenSet}
+              masked={hint === 'ayah'}
+              playingAyah={playingAyah}
+              sel={sel}
+              renderWord={renderWord}
+            />
+          )}
+          {!trans &&
+            lines &&
             text &&
             lines.map((line, i) => {
               const n = i + 1;
@@ -357,36 +458,9 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
                     )}
                     {line[0] === 't' && (
                       <div className="words" style={line[2] ? { width: `${line[2] * 100}%`, gap: `${GAP_EM}em` } : { gap: `${GAP_EM}em` }}>
-                        {(() => {
-                          let pos = 0;
-                          return line[1].flatMap(([idx, from, to]) =>
-                            text.ayahs[idx].slice(from, to).map((w, k) => {
-                              const wi = from + k;
-                              const isMarker = wi === text.ayahs[idx].length - 1;
-                              const show = hint === 'first' ? pos === 0 : wi === 0 || isMarker;
-                              pos++;
-                              const c = ['w', playingAyah === idx ? 'playing' : '', sel === idx ? 'sel' : '', masked && !show ? 'masked' : '']
-                                .filter(Boolean)
-                                .join(' ');
-                              const tj = tajweed && !masked && !isMarker ? piecesOf(idx, text.ayahs[idx])[wi] : null;
-                              return (
-                                <span key={`${idx}-${wi}`} className={c} data-a={idx}>
-                                  {tj
-                                    ? tj.map((p, pi) =>
-                                        p.c ? (
-                                          <span key={pi} className={`tj-${p.c}`}>
-                                            {p.t}
-                                          </span>
-                                        ) : (
-                                          p.t
-                                        ),
-                                      )
-                                    : w}
-                                </span>
-                              );
-                            }),
-                          );
-                        })()}
+                        {line[1].flatMap(([idx, from, to]) =>
+                          text.ayahs[idx].slice(from, to).map((w, k) => renderWord(idx, from + k, w, masked, text.ayahs[idx])),
+                        )}
                       </div>
                     )}
                   </div>
@@ -424,29 +498,24 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
         </div>
       )}
 
-      {trans && lines && (
-        <TranslationPanel
-          lines={lines}
-          id={trans}
-          onChange={(t) => {
-            setTrans(t);
-            setTransChoice(t);
-          }}
-        />
+      {trans && (
+        <div style={{ marginTop: 10 }}>
+          <Seg<TranslationId>
+            label="Übersetzung wählen"
+            value={transChoice}
+            onChange={setTransChoice}
+            options={TRANSLATIONS.map((t) => ({ value: t.id, label: t.short }))}
+          />
+          <p className="small" style={{ margin: '6px 0 0' }}>
+            Übersetzung der Bedeutungen: {TRANSLATIONS.find((t) => t.id === transChoice)!.name}.{' '}
+            {TRANSLATIONS.find((t) => t.id === transChoice)!.source}
+          </p>
+        </div>
       )}
 
       {hifz && (
-        <div style={{ marginTop: 10 }}>
-          <Seg<HintMode>
-            label="Was beim Verdecken sichtbar bleibt"
-            value={hint}
-            onChange={setHint}
-            options={[
-              { value: 'lines', label: 'Verdeckt' },
-              { value: 'first', label: '1. Wort' },
-              { value: 'ayah', label: 'Ajah-Anfang' },
-            ]}
-          />
+        <div className="switch-bar single">
+          <Switch label="Anfang und Ende jeder Ajah zeigen" on={hint === 'ayah'} onChange={(v) => setHint(v ? 'ayah' : 'lines')} />
         </div>
       )}
 
@@ -455,7 +524,7 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
       {hifz && (
         <div className="hifz-bar">
           <button type="button" className="btn primary" onClick={revealNext} disabled={revealed >= coverable.length}>
-            Nächste Zeile
+            Nächste {unit}
           </button>
           <button type="button" className="btn" onClick={() => setRevealed(revealed >= coverable.length ? 0 : coverable.length)}>
             {revealed >= coverable.length ? 'Neu verdecken' : 'Alles zeigen'}
@@ -475,7 +544,7 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
       </div>
       <p className="small" style={{ textAlign: 'center' }}>
         Wischen wie im Mushaf: nach rechts weiter, nach links zurück.
-        {hifz ? ' Im Hifz-Modus deckt ein Tipp auf die Seite die nächste Zeile auf.' : ''}
+        {hifz ? ` Beim Verdecken deckt ein Tipp auf die Seite die nächste ${unit} auf.` : ''}
       </p>
 
       {listen && (
@@ -770,33 +839,87 @@ function usePref<T extends string | boolean>(key: string, initial: T): [T, (v: T
   return [v, set];
 }
 
-/** Übersetzung der Ajat dieser Seite, Ajah für Ajah. */
-function TranslationPanel({ lines, id, onChange }: { lines: LineData[]; id: TranslationId; onChange: (t: TranslationId) => void }) {
-  const tr = useTranslation(id);
-  const ayahs: number[] = [];
-  for (const l of lines) if (l[0] === 't') for (const [idx] of l[1]) if (!ayahs.includes(idx)) ayahs.push(idx);
-  const meta = TRANSLATIONS.find((t) => t.id === id)!;
-  return (
-    <section className="translation" aria-label="Übersetzung">
-      <Seg<TranslationId> label="Übersetzung wählen" value={id} onChange={onChange} options={TRANSLATIONS.map((t) => ({ value: t.id, label: t.short }))} />
-      {tr === null && <p className="small">Übersetzung wird geladen …</p>}
-      {tr === 'error' && <p className="small">Die Übersetzung konnte nicht geladen werden. Bitte einmal mit Internet öffnen.</p>}
-      {Array.isArray(tr) &&
-        ayahs.map((idx) => {
-          const [s, a] = ayahKey(idx);
-          return (
-            <p key={idx} className="tr-ayah">
+/** Ajat dieser Seite in Reihenfolge (globaler Index), ab einer Zeile. */
+function pageAyahs(lines: LineData[], fromLine = 1): number[] {
+  const out: number[] = [];
+  lines.forEach((l, i) => {
+    if (l[0] === 't' && i + 1 >= fromLine) for (const [idx] of l[1]) if (!out.includes(idx)) out.push(idx);
+  });
+  return out;
+}
+
+/** Lesen mit Übersetzung: Ajah für Ajah, die deutsche Bedeutung direkt unter dem arabischen Text. */
+function AyahView({
+  lines,
+  text,
+  transId,
+  hidden,
+  masked,
+  playingAyah,
+  sel,
+  renderWord,
+}: {
+  lines: LineData[];
+  text: TextData;
+  transId: TranslationId;
+  hidden: Set<number>;
+  masked: boolean;
+  playingAyah: number | null;
+  sel: number | null;
+  renderWord: (idx: number, wi: number, w: string, masked: boolean, ayahWords: string[]) => ReactNode;
+}) {
+  const tr = useTranslation(transId);
+  const seen = new Set<number>();
+  const blocks: ReactNode[] = [];
+  lines.forEach((l, i) => {
+    if (l[0] === 'h') {
+      blocks.push(
+        <div key={`h${i}`} className="sura-frame">
+          {SURAS[l[1] - 1].ar}
+          <span className="tr-sura">{SURAS[l[1] - 1].tr}</span>
+        </div>,
+      );
+    } else if (l[0] === 'b') {
+      blocks.push(
+        <div key={`b${i}`} className={`ayah-ar basmala${playingAyah === -1 ? ' playing' : ''}`}>
+          {text.basmala.join(' ')}
+        </div>,
+      );
+    } else {
+      for (const [idx] of l[1]) {
+        if (seen.has(idx)) continue;
+        seen.add(idx);
+        const [s, a] = ayahKey(idx);
+        const words = text.ayahs[idx];
+        const isHidden = hidden.has(idx);
+        const covered = isHidden && !masked;
+        blocks.push(
+          <div key={idx} className={`ayah-item${playingAyah === idx ? ' playing' : ''}${sel === idx ? ' sel' : ''}`} data-a={idx}>
+            <div className={`ayah-ar${covered ? ' covered' : ''}`}>
+              {words.slice(0, -2).map((w, wi) => renderWord(idx, wi, w, isHidden && masked, words))}
+              {/* letztes Wort und Ajah-Nummer bleiben zusammen in einer Zeile */}
+              <span className="ayah-end">
+                {words.slice(-2).map((w, k) => renderWord(idx, words.length - 2 + k, w, isHidden && masked, words))}
+              </span>
+              {covered && <div className="cover" aria-hidden="true" />}
+            </div>
+            <p className="tr-ayah">
               <span className="tr-ref">
                 {s}:{a}
               </span>{' '}
-              {tr[idx]}
+              {Array.isArray(tr) ? tr[idx] : ''}
             </p>
-          );
-        })}
-      <p className="small" style={{ marginBottom: 0 }}>
-        Übersetzung der Bedeutungen: {meta.name}. {meta.source}
-      </p>
-    </section>
+          </div>,
+        );
+      }
+    }
+  });
+  return (
+    <>
+      {blocks}
+      {tr === null && <p className="small">Übersetzung wird geladen …</p>}
+      {tr === 'error' && <p className="small">Die Übersetzung konnte nicht geladen werden. Bitte einmal mit Internet öffnen.</p>}
+    </>
   );
 }
 

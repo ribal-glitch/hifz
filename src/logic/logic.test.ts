@@ -23,7 +23,18 @@ import {
 import { createProfile, ribalPreset, type Profile, type Rating } from './profile';
 import { addQuestion, newQuestion, rateQuestion } from './quiz';
 import { meta, pageRangeLabel, range, textLines } from './quran';
-import { calendar, hafizEstimate, juzStatus, markMilestonesSeen, newMilestones, progress, reachedMilestones, streak, suraStatus } from './stats';
+import {
+  calendar,
+  hafizEstimate,
+  juzStatus,
+  markMilestonesSeen,
+  newMilestones,
+  progress,
+  reachedMilestones,
+  setSuraMemorized,
+  streak,
+  suraStatus,
+} from './stats';
 import { claudeSummary } from './summary';
 
 const START: ISODate = '2026-10-25'; // Sonntag
@@ -387,6 +398,21 @@ describe('Fortschritt', () => {
     expect(s.filter((x) => x.state === 'auswendig').map((x) => x.sura)).toEqual([...range(18, 28), ...range(42, 114)]);
     expect(s[28].state).toBe('dars');
     expect(s[16].state).toBe('teilweise');
+  });
+  it('Sura per Tipp als auswendig eintragen und wieder austragen', () => {
+    const on = setSuraMemorized(p, START, 2, true);
+    expect(suraStatus(on, START)[1].state).toBe('auswendig');
+    expect(on.bestand).toContain(49);
+    const off = setSuraMemorized(on, START, 2, false);
+    expect(suraStatus(off, START)[1].state).toBe('offen');
+    expect(off.bestand).toEqual(p.bestand);
+  });
+  it('Austragen lässt Seiten stehen, die eine auswendige Nachbar-Sura mitbenutzt', () => {
+    const off = setSuraMemorized(p, START, 18, false);
+    const s = suraStatus(off, START);
+    expect(s[17].state).not.toBe('auswendig');
+    expect(s[18].state).toBe('auswendig');
+    expect(s[16].state).toBe('offen');
   });
   it('Meilensteine', () => {
     expect(reachedMilestones(p, START)).toEqual([10, 20, 25, 30]);

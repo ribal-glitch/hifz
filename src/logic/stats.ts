@@ -45,6 +45,27 @@ export function suraStatus(
   });
 }
 
+/**
+ * Sura als auswendig eintragen (alle ihre Seiten in den Bestand) oder wieder austragen.
+ * Beim Austragen bleiben Seiten stehen, die eine andere, weiterhin auswendige Sura mitbenutzt.
+ */
+export function setSuraMemorized(profile: Profile, date: ISODate, sura: number, on: boolean): Profile {
+  const [from, to] = suraPages(profile.edition, sura);
+  const pages = range(from, to);
+  const set = new Set(profile.bestand);
+  if (on) {
+    for (const p of pages) set.add(p);
+  } else {
+    const keep = new Set<number>();
+    for (const s of suraStatus(profile, date)) {
+      if (s.sura === sura || s.state !== 'auswendig') continue;
+      for (let p = s.from; p <= s.to; p++) keep.add(p);
+    }
+    for (const p of pages) if (!keep.has(p)) set.delete(p);
+  }
+  return { ...profile, bestand: [...set].sort((a, b) => a - b) };
+}
+
 export function consolidation(profile: Profile, date: ISODate) {
   const set = effectiveBestand(profile, date);
   let sitzt = 0;

@@ -336,6 +336,18 @@ export function Seg<T extends string | number>({
   );
 }
 
+/** Ein-/Aus-Schalter mit Beschriftung, z. B. in der Schalter-Leiste beim Lesen. */
+export function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} className={`switch${on ? ' on' : ''}`} onClick={() => onChange(!on)}>
+      <span className="track" aria-hidden="true">
+        <span className="knob" />
+      </span>
+      <span className="label">{label}</span>
+    </button>
+  );
+}
+
 /** Zahleneingabe mit −/+; Änderungen werden erst beim Verlassen des Felds übernommen. */
 export function Stepper({
   value,

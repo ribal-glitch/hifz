@@ -14,6 +14,7 @@ import {
   newMilestones,
   pagesForMilestone,
   progress,
+  setSuraMemorized,
   streak,
   suraStatus,
   type SuraState,
@@ -30,7 +31,7 @@ const SURA_LABEL: Record<SuraState, string> = {
 };
 
 export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
-  const { profile, today, update } = useStore();
+  const { profile, today, update, toast } = useStore();
   const [openSura, setOpenSura] = useState<number | null>(null);
   if (!profile) return null;
   const prog = progress(profile, today);
@@ -217,21 +218,38 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
       </div>
 
       <h2 className="section-title">Suren</h2>
+      <p className="hint" style={{ marginTop: 0 }}>
+        Tippe auf den Status, um eine Sura als auswendig einzutragen oder wieder auszutragen.
+      </p>
       <div>
         {suras.map((s) => {
           const meta = SURAS[s.sura - 1];
           const open = openSura === s.sura;
+          const known = s.state === 'auswendig';
           return (
             <div key={s.sura}>
-              <button type="button" className="index-row" aria-expanded={open} onClick={() => setOpenSura(open ? null : s.sura)}>
-                <span className="num">{s.sura}</span>
-                <span className="name">{meta.tr}</span>
-                <span className="leader" aria-hidden="true" />
-                <span className={`state ${s.state}`}>
+              <div className="index-row sura-row">
+                <button type="button" className="row-main" aria-expanded={open} onClick={() => setOpenSura(open ? null : s.sura)}>
+                  <span className="num">{s.sura}</span>
+                  <span className="name">{meta.tr}</span>
+                  <span className="leader" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className={`state-pill ${s.state}`}
+                  aria-pressed={known}
+                  aria-label={`${meta.tr}: ${SURA_LABEL[s.state]}. ${known ? 'Wieder als offen markieren' : 'Als auswendig markieren'}`}
+                  onClick={() => {
+                    update((p) => setSuraMemorized(p, today, s.sura, !known));
+                    toast(known ? `${meta.tr} ausgetragen` : `${meta.tr} als auswendig eingetragen`);
+                  }}
+                >
                   {s.state === 'teilweise' ? `${s.done}/${s.total} S.` : SURA_LABEL[s.state]}
+                </button>
+                <span className="ar" onClick={() => setOpenSura(open ? null : s.sura)}>
+                  {meta.ar}
                 </span>
-                <span className="ar">{meta.ar}</span>
-              </button>
+              </div>
               {open && (
                 <div className="sura-detail">
                   <div>
