@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "build:artifact": "tsc --noEmit && vite build --mode artifact && node scripts/make-artifact.mjs",
-    "reminders": "node scripts/make-reminders.mjs"
+    "reminders": "node scripts/make-reminders.mjs",
+    "translations": "node scripts/build-translations.mjs"
   },
   "dependencies": {
     "@fontsource/plus-jakarta-sans": "^5.3.0",

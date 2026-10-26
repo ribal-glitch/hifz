@@ -265,7 +265,7 @@ html.artifact .tabbar {
   position: absolute;
   top: -1px;
   left: 0;
-  width: calc(100% / 3);
+  width: calc(100% / 4);
   height: 2px;
   pointer-events: none;
   transition: transform 0.25s ease-out;
@@ -1841,4 +1841,125 @@ a.iconbtn {
 
 a.btn.primary {
   color: var(--accent-ink);
+}
+
+/* ---------- Tajwīd-Farben (wie im farbigen Tajwīd-Mushaf) ---------- */
+:root {
+  --tj-madd: #c0392b;
+  --tj-ghunna: #2e8b3e;
+  --tj-qalqala: #1f63b5;
+  --tj-silent: #a39e93;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --tj-madd: #ff7a6b;
+    --tj-ghunna: #6fd27f;
+    --tj-qalqala: #7fb4ff;
+    --tj-silent: #7d776c;
+  }
+}
+
+:root[data-theme='dark'] {
+  --tj-madd: #ff7a6b;
+  --tj-ghunna: #6fd27f;
+  --tj-qalqala: #7fb4ff;
+  --tj-silent: #7d776c;
+}
+
+.tj-madd {
+  color: var(--tj-madd);
+}
+.tj-ghunna {
+  color: var(--tj-ghunna);
+}
+.tj-qalqala {
+  color: var(--tj-qalqala);
+}
+.tj-silent {
+  color: var(--tj-silent);
+}
+.tj-bg-madd {
+  background: var(--tj-madd);
+}
+.tj-bg-ghunna {
+  background: var(--tj-ghunna);
+}
+.tj-bg-qalqala {
+  background: var(--tj-qalqala);
+}
+.tj-bg-silent {
+  background: var(--tj-silent);
+}
+
+.tj-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tj-legend span {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1.3;
+}
+
+.tj-legend .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  transform: translateY(1px);
+}
+
+.tj-legend b {
+  font-weight: 700;
+}
+
+/* ---------- Übersetzung ---------- */
+.translation {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.tr-ayah {
+  margin: 12px 0 0;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.tr-ref {
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Lesen: Übersicht ---------- */
+.continue {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.continue b {
+  font-size: 17px;
+  color: var(--accent);
+}
+
+.reader-bar .iconbtn {
+  width: 44px;
 }

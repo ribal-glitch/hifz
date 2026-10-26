@@ -419,6 +419,10 @@ export function Settings() {
         </p>
         <p>Zeilenumbrüche des Madina-Mushaf: quran-madina-html von Tarek Eldeeb (Waqf General Public License 2.0).</p>
         <p>Rezitationen: über EveryAyah.com (nur online).</p>
+        <p>
+          Übersetzungen (Bedeutungen, nicht der Quran selbst): Frank Bubenheim &amp; Nadeem Elyas (über QuranEnc.com) und
+          Muhammad Abu Rida (über Tanzil.net), unverändert, nur zum persönlichen Gebrauch.
+        </p>
         <p style={{ marginBottom: 0 }}>Schrift der Oberfläche: Plus Jakarta Sans (SIL Open Font License).</p>
       </section>
 

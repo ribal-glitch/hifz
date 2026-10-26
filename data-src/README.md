@@ -27,3 +27,14 @@ geschrieben; alles kommt aus diesen Dateien.
   kommt aus den KFGQPC-Daten.
 - Abgleich: Für die Ausgabe 1441 H stimmen Seite und Zeilenbereich aller
   6236 Ajat mit den KFGQPC-Daten überein.
+
+## translations/
+
+Deutsche Übersetzungen der Bedeutungen, wie sie auch auf quran.com angeboten werden:
+
+- `deu-frankbubenheima.json`: Frank Bubenheim und Nadeem Elyas, Quelle QuranEnc
+  (https://quranenc.com/en/browse/german_bubenheim), herausgegeben vom King-Fahd-Komplex.
+- `deu-aburidamuhammad.json`: Abu Rida Muhammad Ibn Ahmad Ibn Rassoul, Quelle Tanzil (http://tanzil.net).
+
+Bezogen über https://github.com/fawazahmed0/quran-api (Zweig `1`, Commit 93e6f649).
+Die Texte werden unverändert übernommen. Nutzung nur nicht-kommerziell und mit Quellenangabe.

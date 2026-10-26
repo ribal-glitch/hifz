@@ -19,6 +19,10 @@ Zum Prüfen öffnen sich Seiten verdeckt (erst abrufen, dann nachsehen). Die Min
 Seitenübergänge und Schwachstellen ab. Zum Anhören stehen 16 bekannte Rezitatoren (EveryAyah.com) mit
 Wiederholung pro Ajah bereit.
 
+Aufbau in vier Seiten zum Wischen: **Lesen** (Suren-Übersicht, Mushaf mit Wischen zwischen den Seiten,
+Tajwīd-Farben und zwei deutsche Übersetzungen per Knopf), **Lernen** (Dars), **Wiederholen** (frische Seiten,
+Murājaʿa, freie Wiederholungen, Prüfung) und **Fortschritt**.
+
 ## Auf dem Handy installieren
 
 **iPhone (Safari):** Link öffnen → unten auf „Teilen“ (Quadrat mit Pfeil) →
@@ -63,5 +67,10 @@ Aufbau:
   [quran-madina-html](https://www.npmjs.com/package/quran-madina-html) von Tarek Eldeeb,
   Waqf General Public License 2.0. Übernommen werden nur die Zeilengrenzen.
 - Rezitationen: über [EveryAyah.com](https://everyayah.com) (u. a. al-Ḥuṣarī, al-Minshāwī, ʿAbd al-Bāsiṭ, al-ʿAfāsī), nur online abgespielt.
+- Deutsche Übersetzungen der Bedeutungen: Frank Bubenheim & Nadeem Elyas ([QuranEnc.com](https://quranenc.com))
+  und Muhammad Abu Rida ([Tanzil.net](https://tanzil.net/trans/)), unverändert, aus
+  [fawazahmed0/quran-api](https://github.com/fawazahmed0/quran-api); nicht kommerziell, mit Quellenangabe.
+- Tajwīd-Farben: regelbasiert aus den Zeichen des Madina-Mushaf (Sukūn, versetztes Tanwīn, kleines Mīm, Madda,
+  Stummkreis), der Text selbst wird nicht verändert.
 - Die Quran-Foundation-API (quran.com) wird bewusst nicht verwendet: Ihre Developer Terms erlauben
   keine vorab gebündelten Textdaten.

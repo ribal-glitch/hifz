@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { RECITERS, REPEAT_OPTIONS, listenUrl, reciterById, useAudio } from '../audio';
 import { IS_ARTIFACT, quranComUrl } from '../platform';
 import { ayahKey, useMushafData, type LineData, type TextData } from '../data/quranData';
@@ -7,6 +7,9 @@ import { logFreeReview, removeFreeReview } from '../logic/plan';
 import type { Rating } from '../logic/profile';
 import { useStore } from '../store';
 import { Icon, Seg, Sheet } from '../ui';
+import { TAJWEED_LEGEND, tajweedAyah, type Piece } from '../logic/tajweed';
+import { TRANSLATIONS, useTranslation, type TranslationId } from '../data/translations';
+import { suraStatus } from '../logic/stats';
 import type { ReadTarget } from './Today';
 
 const FONT = '"KFGQPC Hafs"';
@@ -94,6 +97,20 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
   };
   /** angetippte Ajah (globaler Index) für Schleife und Nachsprechen */
   const [sel, setSel] = useState<number | null>(null);
+  /** Lesen beginnt mit der Suren-Übersicht; ein Sprungziel öffnet direkt die Seite */
+  const [view, setView] = useState<'index' | 'page'>(() => (target ? 'page' : 'index'));
+  const [tajweed, setTajweed] = usePref<boolean>('hifz:tajweed', false);
+  const [trans, setTrans] = usePref<TranslationId | ''>('hifz:trans', '');
+  const [transChoice, setTransChoice] = usePref<TranslationId>('hifz:transChoice', 'bubenheim');
+  const tjCache = useMemo(() => new Map<number, Piece[][]>(), [data]);
+  const piecesOf = (idx: number, ayah: string[]) => {
+    let v = tjCache.get(idx);
+    if (!v) {
+      v = tajweedAyah(ayah.slice(0, -1));
+      tjCache.set(idx, v);
+    }
+    return v;
+  };
 
   const setPage = useCallback(
     (p: number) => {
@@ -121,6 +138,7 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
     setHl({ from: target.from, to: target.to, start: target.startLine });
     setHifz(!!target.startLine);
     if (target.counter) setCounter(0);
+    setView('page');
     onTargetUsed();
   }, [target, setPage, onTargetUsed]);
 
@@ -201,18 +219,45 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
   if (!profile) return null;
   const juz = pageJuz(ed, page);
 
+  if (view === 'index') {
+    return (
+      <SuraIndex
+        edition={ed}
+        lastPage={page}
+        onOpen={(p) => {
+          setPage(p);
+          setView('page');
+        }}
+        onJump={() => setJump(true)}
+        jumpSheet={
+          jump && (
+            <JumpSheet
+              edition={ed}
+              onClose={() => setJump(false)}
+              onGo={(p) => {
+                setPage(p);
+                setJump(false);
+                setView('page');
+              }}
+            />
+          )
+        }
+      />
+    );
+  }
+
   return (
     <div>
       <div className="reader-bar">
+        <button type="button" className="iconbtn" aria-label="Zur Suren-Übersicht" onClick={() => setView('index')}>
+          <Icon name="list" />
+        </button>
         <div className="info">
-          <b>Seite {page}</b>
+          <b>S. {page}</b>
           <div>
             {pageRangeLabel(ed, page)} · Juz {juz}
           </div>
         </div>
-        <button type="button" className="iconbtn" aria-label="Springen zu Seite, Sura oder Juz" onClick={() => setJump(true)}>
-          <Icon name="jump" />
-        </button>
         <button
           type="button"
           className="iconbtn"
@@ -225,6 +270,18 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
           }}
         >
           <Icon name="eye" />
+        </button>
+        <button type="button" className="iconbtn" aria-pressed={tajweed} aria-label="Tajwīd-Farben" onClick={() => setTajweed(!tajweed)}>
+          <Icon name="tajweed" />
+        </button>
+        <button
+          type="button"
+          className="iconbtn"
+          aria-pressed={!!trans}
+          aria-label="Übersetzung einblenden"
+          onClick={() => setTrans(trans ? '' : transChoice)}
+        >
+          <Icon name="translate" />
         </button>
         {IS_ARTIFACT ? (
           <a
@@ -311,9 +368,20 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
                               const c = ['w', playingAyah === idx ? 'playing' : '', sel === idx ? 'sel' : '', masked && !show ? 'masked' : '']
                                 .filter(Boolean)
                                 .join(' ');
+                              const tj = tajweed && !masked && !isMarker ? piecesOf(idx, text.ayahs[idx])[wi] : null;
                               return (
                                 <span key={`${idx}-${wi}`} className={c} data-a={idx}>
-                                  {w}
+                                  {tj
+                                    ? tj.map((p, pi) =>
+                                        p.c ? (
+                                          <span key={pi} className={`tj-${p.c}`}>
+                                            {p.t}
+                                          </span>
+                                        ) : (
+                                          p.t
+                                        ),
+                                      )
+                                    : w}
                                 </span>
                               );
                             }),
@@ -343,6 +411,28 @@ export function Read({ target, onTargetUsed }: { target: ReadTarget | null; onTa
             +1
           </button>
         </div>
+      )}
+
+      {tajweed && (
+        <div className="tj-legend" aria-label="Tajwīd-Farben">
+          {TAJWEED_LEGEND.map((l) => (
+            <span key={l.c} title={l.hint}>
+              <i className={`dot tj-bg-${l.c}`} />
+              <b className={`tj-${l.c}`}>{l.label}</b> {l.hint}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {trans && lines && (
+        <TranslationPanel
+          lines={lines}
+          id={trans}
+          onChange={(t) => {
+            setTrans(t);
+            setTransChoice(t);
+          }}
+        />
       )}
 
       {hifz && (
@@ -655,6 +745,155 @@ function AyahBar({ ayah, page, onClose }: { ayah: number; page: number; onClose:
       <button type="button" className="iconbtn" aria-label="Auswahl schließen" onClick={onClose}>
         ×
       </button>
+    </div>
+  );
+}
+
+/** Einstellung dieses Geräts in localStorage (z. B. Tajwīd an/aus). */
+function usePref<T extends string | boolean>(key: string, initial: T): [T, (v: T) => void] {
+  const [v, setV] = useState<T>(() => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw === null ? initial : (JSON.parse(raw) as T);
+    } catch {
+      return initial;
+    }
+  });
+  const set = (nv: T) => {
+    setV(nv);
+    try {
+      localStorage.setItem(key, JSON.stringify(nv));
+    } catch {
+      /* egal */
+    }
+  };
+  return [v, set];
+}
+
+/** Übersetzung der Ajat dieser Seite, Ajah für Ajah. */
+function TranslationPanel({ lines, id, onChange }: { lines: LineData[]; id: TranslationId; onChange: (t: TranslationId) => void }) {
+  const tr = useTranslation(id);
+  const ayahs: number[] = [];
+  for (const l of lines) if (l[0] === 't') for (const [idx] of l[1]) if (!ayahs.includes(idx)) ayahs.push(idx);
+  const meta = TRANSLATIONS.find((t) => t.id === id)!;
+  return (
+    <section className="translation" aria-label="Übersetzung">
+      <Seg<TranslationId> label="Übersetzung wählen" value={id} onChange={onChange} options={TRANSLATIONS.map((t) => ({ value: t.id, label: t.short }))} />
+      {tr === null && <p className="small">Übersetzung wird geladen …</p>}
+      {tr === 'error' && <p className="small">Die Übersetzung konnte nicht geladen werden. Bitte einmal mit Internet öffnen.</p>}
+      {Array.isArray(tr) &&
+        ayahs.map((idx) => {
+          const [s, a] = ayahKey(idx);
+          return (
+            <p key={idx} className="tr-ayah">
+              <span className="tr-ref">
+                {s}:{a}
+              </span>{' '}
+              {tr[idx]}
+            </p>
+          );
+        })}
+      <p className="small" style={{ marginBottom: 0 }}>
+        Übersetzung der Bedeutungen: {meta.name}. {meta.source}
+      </p>
+    </section>
+  );
+}
+
+/** Startansicht von „Lesen“: alle Suren (oder Juz), zum Öffnen antippen. */
+function SuraIndex({
+  edition,
+  lastPage,
+  onOpen,
+  onJump,
+  jumpSheet,
+}: {
+  edition: EditionId;
+  lastPage: number;
+  onOpen: (page: number) => void;
+  onJump: () => void;
+  jumpSheet: ReactNode;
+}) {
+  const { profile, today } = useStore();
+  const [mode, setMode] = useState<'sura' | 'juz'>('sura');
+  const [q, setQ] = useState('');
+  if (!profile) return null;
+  const status = suraStatus(profile, today);
+  const query = q.trim().toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+  const simple = (t: string) => t.normalize('NFD').replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+  const suras = SURAS.filter((s) => !query || String(s.n) === query || simple(s.tr).includes(query));
+  const label = { auswendig: 'auswendig', dars: 'im Dars', teilweise: 'teilweise', offen: '' } as const;
+  return (
+    <div>
+      <button type="button" className="continue" onClick={() => onOpen(lastPage)}>
+        <span className="small">Weiterlesen</span>
+        <b>
+          S. {lastPage} · {pageRangeLabel(edition, lastPage)}
+        </b>
+      </button>
+      <div className="row" style={{ margin: '14px 0 10px' }}>
+        <input
+          id="sura-search"
+          className="field"
+          placeholder="Sura suchen (Name oder Nummer)"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          style={{ flex: 1 }}
+        />
+        <button type="button" className="iconbtn" aria-label="Zu einer Seite springen" onClick={onJump} style={{ border: '1px solid var(--border)' }}>
+          <Icon name="jump" />
+        </button>
+      </div>
+      <Seg<'sura' | 'juz'>
+        label="Übersicht nach"
+        value={mode}
+        onChange={setMode}
+        options={[
+          { value: 'sura', label: '114 Suren' },
+          { value: 'juz', label: '30 Juz' },
+        ]}
+      />
+      <div style={{ marginTop: 6 }}>
+        {mode === 'sura' &&
+          suras.map((s) => {
+            const st = status[s.n - 1];
+            const [from] = suraPages(edition, s.n);
+            return (
+              <button key={s.n} type="button" className="index-row" onClick={() => onOpen(from)}>
+                <span className="num">{s.n}</span>
+                <span className="name">
+                  {s.tr}
+                  <span className="sub" style={{ display: 'block', fontSize: 13 }}>
+                    S. {from} · {s.ayahs} Ajat{label[st.state] ? ` · ${label[st.state]}` : ''}
+                  </span>
+                </span>
+                <span className="leader" aria-hidden="true" />
+                <span className="ar">{s.ar}</span>
+              </button>
+            );
+          })}
+        {mode === 'sura' && suras.length === 0 && <p className="empty">Keine Sura gefunden.</p>}
+        {mode === 'juz' &&
+          Array.from({ length: JUZ_COUNT }, (_, i) => i + 1).map((j) => {
+            const [a, b] = juzPages(edition, j);
+            return (
+              <button key={j} type="button" className="index-row" onClick={() => onOpen(a)}>
+                <span className="num">{j}</span>
+                <span className="name">
+                  Juz {j}
+                  <span className="sub" style={{ display: 'block', fontSize: 13 }}>
+                    {pageRangeLabel(edition, a).split(' – ')[0]}
+                  </span>
+                </span>
+                <span className="leader" aria-hidden="true" />
+                <span className="state">
+                  S. {a}–{b}
+                </span>
+              </button>
+            );
+          })}
+      </div>
+      {jumpSheet}
     </div>
   );
 }

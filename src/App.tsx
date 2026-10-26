@@ -11,18 +11,20 @@ import { suraName } from './logic/quran';
 import { useStore } from './store';
 import { Avatar, Icon } from './ui';
 
-/** Drei Seiten zum Wischen: Lesen ← Wiederholen → Fortschritt. Start ist „Wiederholen“. */
+/** Vier Seiten zum Wischen: Lesen · Lernen · Wiederholen · Fortschritt. */
 const SLIDES = [
   { id: 'read', label: 'Lesen', icon: 'read' },
-  { id: 'review', label: 'Wiederholen', icon: 'today' },
+  { id: 'learn', label: 'Lernen', icon: 'learn' },
+  { id: 'review', label: 'Wiederholen', icon: 'repeat' },
   { id: 'progress', label: 'Fortschritt', icon: 'progress' },
 ] as const;
-const START_SLIDE = 1;
 
 export function App() {
   const { ready, profile, closeProfile, toastMsg, needLogin } = useStore();
   const audio = useAudio();
-  const [active, setActive] = useState(START_SLIDE);
+  // Start: „Lernen“, wer im Dars ist, sonst „Wiederholen“
+  const startSlide = profile?.dars.enabled ? 1 : 2;
+  const [active, setActive] = useState(startSlide);
   const [settings, setSettings] = useState(false);
   const [target, setTarget] = useState<ReadTarget | null>(null);
   const slides = useRef<HTMLDivElement>(null);
@@ -45,7 +47,7 @@ export function App() {
 
   // Beim Öffnen eines Profils immer mit „Wiederholen“ beginnen
   useLayoutEffect(() => {
-    if (profile) go(START_SLIDE, false);
+    if (profile) go(profile.dars.enabled ? 1 : 2, false);
     setSettings(false);
   }, [profile?.id, go]);
 
@@ -89,12 +91,17 @@ export function App() {
                 <Read target={target} onTargetUsed={targetUsed} />
               </div>
             </section>
-            <section className="slide" aria-label="Wiederholen" aria-hidden={active !== 1}>
+            <section className="slide" aria-label="Lernen" aria-hidden={active !== 1}>
               <div className="content">
-                <Today onOpen={open} />
+                <Today onOpen={open} part="learn" />
               </div>
             </section>
-            <section className="slide" aria-label="Fortschritt" aria-hidden={active !== 2}>
+            <section className="slide" aria-label="Wiederholen" aria-hidden={active !== 2}>
+              <div className="content">
+                <Today onOpen={open} part="review" />
+              </div>
+            </section>
+            <section className="slide" aria-label="Fortschritt" aria-hidden={active !== 3}>
               <div className="content">
                 <ProgressTab onOpen={open} />
               </div>

@@ -4,7 +4,26 @@ import { initials } from './logic/profile';
 export function Icon({
   name,
 }: {
-  name: 'today' | 'progress' | 'read' | 'settings' | 'eye' | 'play' | 'pause' | 'stop' | 'jump' | 'prev' | 'next' | 'copy' | 'plus' | 'chevron';
+  name:
+    | 'today'
+    | 'progress'
+    | 'read'
+    | 'settings'
+    | 'eye'
+    | 'play'
+    | 'pause'
+    | 'stop'
+    | 'jump'
+    | 'prev'
+    | 'next'
+    | 'copy'
+    | 'plus'
+    | 'chevron'
+    | 'list'
+    | 'tajweed'
+    | 'translate'
+    | 'learn'
+    | 'repeat';
 }) {
   const p = {
     fill: 'none',
@@ -59,6 +78,46 @@ export function Icon({
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M8.5 5.5v13M15.5 5.5v13" {...p} strokeWidth={3} />
+        </svg>
+      );
+    case 'list':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9 6h11M9 12h11M9 18h11" {...p} />
+          <circle cx="4.5" cy="6" r="1.2" fill="currentColor" />
+          <circle cx="4.5" cy="12" r="1.2" fill="currentColor" />
+          <circle cx="4.5" cy="18" r="1.2" fill="currentColor" />
+        </svg>
+      );
+    case 'tajweed':
+      // Farbpalette mit drei Punkten
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 2-.9 2-1.9 0-1.4-1.2-1.8-1.2-3 0-1 .8-1.6 1.9-1.6h2.1a3.7 3.7 0 0 0 3.7-3.7C20.5 6.6 16.7 3.5 12 3.5z" {...p} />
+          <circle cx="8" cy="10" r="1.3" fill="currentColor" />
+          <circle cx="11.5" cy="7.3" r="1.3" fill="currentColor" />
+          <circle cx="15.5" cy="8.6" r="1.3" fill="currentColor" />
+        </svg>
+      );
+    case 'translate':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3.5 5.5h9M8 3.5v2M5.5 5.5c.8 3.4 3.2 6 6.5 7.5M10.5 5.5c-.8 3.4-3.2 6-6.5 7.5" {...p} />
+          <path d="m12.5 20.5 4-9 4 9M14 17.5h5" {...p} />
+        </svg>
+      );
+    case 'learn':
+      // aufgeschlagenes Buch mit Stift
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 6.5C10 5 7 4.5 3.5 5v13.5C7 18 10 18.5 12 20V6.5z" {...p} />
+          <path d="m15 17 5.5-9.5 1.8 1-5.5 9.5-2.2 1z" {...p} />
+        </svg>
+      );
+    case 'repeat':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 11V9.5A3.5 3.5 0 0 1 7.5 6H19m0 0-3-3m3 3-3 3M20 13v1.5a3.5 3.5 0 0 1-3.5 3.5H5m0 0 3 3m-3-3 3-3" {...p} />
         </svg>
       );
     case 'stop':

@@ -242,13 +242,15 @@ function DarsMethod({ task, onOpen }: { task: DarsTask; onOpen: (t: ReadTarget) 
   );
 }
 
-export function Today({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
+/** Zwei Seiten: „Lernen“ (neue Dars-Portion, Notiz) und „Wiederholen“ (frische Seiten, Murājaʿa, Prüfung). */
+export function Today({ onOpen, part }: { onOpen: (t: ReadTarget) => void; part: 'learn' | 'review' }) {
   const { profile, today, update } = useStore();
   if (!profile) return null;
   const ed = profile.edition;
   const day = profile.days[today];
   const status = cardStatus(profile, today);
-  const cards = [status.dars, status.fresh, status.muraja].filter((v) => v !== null);
+  const cards = (part === 'learn' ? [status.dars] : [status.fresh, status.muraja]).filter((v) => v !== null);
+  const partDone = cards.length > 0 && cards.every(Boolean);
   const doneCount = cards.filter(Boolean).length;
   const dars = darsTask(profile, today);
   const fresh = freshPages(profile, today);
@@ -263,7 +265,17 @@ export function Today({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
       <header className="today-head">
         <div className="date">{formatLong(today)}</div>
         <div className="status">
-          {cards.length === 0 ? 'Noch nichts geplant' : doneCount === cards.length ? 'Einheit erledigt' : `${doneCount} von ${cards.length} Schritten erledigt`}
+          {part === 'learn'
+            ? !dars
+              ? 'Kein Dars eingestellt'
+              : partDone
+                ? 'Heute gelernt'
+                : 'Neue Portion lernen'
+            : cards.length === 0
+              ? 'Noch nichts geplant'
+              : partDone
+                ? 'Wiederholung geschafft'
+                : `${doneCount} von ${cards.length} Schritten erledigt`}
         </div>
         {cards.length > 0 && (
           <div className="meta">
@@ -284,22 +296,35 @@ export function Today({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
         )}
       </header>
 
-      {day?.complete && (
+      {partDone && (
         <div className="done-line pop" role="status">
-          <Check on label="Einheit erledigt" />
+          <Check on label="Erledigt" />
           <div>
-            Bārak Allāhu fīk.
-            <small>Die Einheit für heute ist geschafft. Morgen geht es weiter.</small>
+            {day?.complete ? 'Bārak Allāhu fīk.' : part === 'learn' ? 'Portion geschafft.' : 'Wiederholung geschafft.'}
+            <small>
+              {day?.complete
+                ? 'Die ganze Einheit für heute ist erledigt. Morgen geht es weiter.'
+                : part === 'learn'
+                  ? 'Weiter geht es unter „Wiederholen“.'
+                  : 'Fehlt nur noch die Dars-Portion unter „Lernen“.'}
+            </small>
           </div>
         </div>
       )}
 
-      {!hasBestand && !dars && (
+      {part === 'review' && !hasBestand && (
         <div className="card empty">Noch kein Bestand eingetragen. Lege in den Einstellungen fest, welche Seiten du auswendig kannst.</div>
       )}
 
+      {part === 'learn' && !dars && (
+        <div className="card">
+          <p style={{ marginTop: 0 }}>Hier erscheint deine Dars-Portion des Tages, wenn du bei einem Lehrer jede Woche eine neue Seite lernst.</p>
+          <p className="small" style={{ marginBottom: 0 }}>Einschalten unter Einstellungen (Zahnrad oben) → Dars.</p>
+        </div>
+      )}
+
       <div className="flow">
-        {dars && (
+        {part === 'learn' && dars && (
           <Step
             n={++stepNo}
             done={status.dars === true}
@@ -338,7 +363,7 @@ export function Today({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
           </Step>
         )}
 
-        {fresh.length > 0 && (
+        {part === 'review' && fresh.length > 0 && (
           <Step
             n={++stepNo}
             done={status.fresh === true}
@@ -372,7 +397,7 @@ export function Today({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
           </Step>
         )}
 
-        {muraja && muraja.pages.length > 0 && (
+        {part === 'review' && muraja && muraja.pages.length > 0 && (
           <Step
             n={++stepNo}
             done={status.muraja === true}
@@ -432,24 +457,34 @@ export function Today({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
         )}
       </div>
 
-      <FreeReviews onOpen={onOpen} />
+      {part === 'review' && <FreeReviews onOpen={onOpen} />}
 
-      <div className="ornament" aria-hidden="true">
-        <i />
-      </div>
+      {part === 'learn' && (
+        <>
+          <div className="ornament" aria-hidden="true">
+            <i />
+          </div>
+          <h2 className="section-title" style={{ marginTop: 0 }}>
+            Notiz
+          </h2>
+          <textarea
+            className="note"
+            aria-label="Notiz für heute"
+            placeholder="z. B. was der Sheikh korrigiert hat"
+            value={day?.note ?? ''}
+            onChange={(e) => update((p) => setNote(p, today, e.target.value))}
+          />
+        </>
+      )}
 
-      <h2 className="section-title" style={{ marginTop: 0 }}>
-        Notiz
-      </h2>
-      <textarea
-        className="note"
-        aria-label="Notiz für heute"
-        placeholder="z. B. was der Sheikh korrigiert hat"
-        value={day?.note ?? ''}
-        onChange={(e) => update((p) => setNote(p, today, e.target.value))}
-      />
-
-      {hasBestand && <Quiz onOpen={onOpen} />}
+      {part === 'review' && hasBestand && (
+        <>
+          <div className="ornament" aria-hidden="true">
+            <i />
+          </div>
+          <Quiz onOpen={onOpen} />
+        </>
+      )}
     </div>
   );
 }
