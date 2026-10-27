@@ -26,6 +26,7 @@ import { addQuestion, juzQuestions, newQuestion, rateQuestion } from './quiz';
 import { juzPages, meta, pageRangeLabel, range, textLines } from './quran';
 import {
   calendar,
+  cycleSuraState,
   hafizEstimate,
   juzStatus,
   markMilestonesSeen,
@@ -402,6 +403,21 @@ describe('Juz-Quiz', () => {
       expect(lines).toContain(q.line! - 1);
       expect(q.ok).toBeNull();
     }
+  });
+});
+
+describe('Sura-Status weiterschalten', () => {
+  it('offen → im Dars → auswendig → offen', () => {
+    let p = ribalPreset(START);
+    const state = () => suraStatus(p, START)[9].state; // Yūnus, noch nicht im Bestand
+    expect(state()).toBe('offen');
+    p = cycleSuraState(p, START, 10);
+    expect(state()).toBe('dars');
+    p = cycleSuraState(p, START, 10);
+    expect(state()).toBe('auswendig');
+    expect(p.learning).not.toContain(10);
+    p = cycleSuraState(p, START, 10);
+    expect(state()).toBe('offen');
   });
 });
 

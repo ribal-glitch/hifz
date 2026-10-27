@@ -2570,3 +2570,79 @@ a.btn.primary {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
   }
 }
+
+/* ---------- Auf- und zuklappbare Abschnitte ---------- */
+
+.fold-head {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.fold-head .section-title {
+  flex: 1;
+}
+
+.fold-head .chev {
+  margin: 16px 6px 0 0;
+}
+
+/* ---------- Lernen: Plan oder Eigenes ---------- */
+
+.choice-list {
+  display: grid;
+  gap: 10px;
+}
+
+.choice {
+  display: block;
+  width: 100%;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  text-align: left;
+}
+
+.choice b {
+  display: block;
+  font-family: var(--serif);
+  letter-spacing: -0.02em;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.choice span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.own-pages .what {
+  font-weight: 600;
+}
+
+.own-pages .what small {
+  font-weight: 400;
+}
+
+.own-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.own-actions .btn {
+  min-height: 40px;
+  padding: 0 12px;
+  font-size: 14.5px;
+}

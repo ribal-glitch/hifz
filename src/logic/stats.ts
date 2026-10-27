@@ -40,7 +40,7 @@ export function suraStatus(
     const pages = range(from, to);
     const done = pages.filter((p) => set.has(p)).length;
     let state: SuraState = done === pages.length ? 'auswendig' : done ? 'teilweise' : 'offen';
-    if (state !== 'auswendig' && dp >= from && dp <= to) state = 'dars';
+    if (state !== 'auswendig' && ((dp >= from && dp <= to) || profile.learning?.includes(s.n))) state = 'dars';
     return { sura: s.n, state, done, total: pages.length, from, to };
   });
 }
@@ -64,6 +64,15 @@ export function setSuraMemorized(profile: Profile, date: ISODate, sura: number, 
     for (const p of pages) if (!keep.has(p)) set.delete(p);
   }
   return { ...profile, bestand: [...set].sort((a, b) => a - b) };
+}
+
+/** Status einer Sura per Tipp weiterschalten: offen → im Dars → auswendig → offen. */
+export function cycleSuraState(profile: Profile, date: ISODate, sura: number): Profile {
+  const state = suraStatus(profile, date)[sura - 1].state;
+  const learning = (profile.learning ?? []).filter((n) => n !== sura);
+  if (state === 'auswendig') return { ...setSuraMemorized(profile, date, sura, false), learning };
+  if (state === 'dars') return { ...setSuraMemorized(profile, date, sura, true), learning };
+  return { ...profile, learning: [...learning, sura] };
 }
 
 export function consolidation(profile: Profile, date: ISODate) {

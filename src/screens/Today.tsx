@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { listenUrl, reciterById, useAudio } from '../audio';
+import { quranComPageUrl } from '../platform';
 import { useLayoutReady } from '../data/quranData';
 import { IS_ARTIFACT } from '../platform';
 import { addDays, formatDayMonth, formatLong, weekday, WEEKDAYS_SHORT } from '../logic/dates';
@@ -22,13 +23,28 @@ import {
   type DarsTask,
 } from '../logic/plan';
 import type { Rating } from '../logic/profile';
-import { JUZ_COUNT, PAGE_COUNT, formatRanges, juzPages, pageJuz, pageLineCount, pageRangeLabel, range, textLines } from '../logic/quran';
+import {
+  JUZ_COUNT,
+  PAGE_COUNT,
+  SURAS,
+  meta,
+  suraName,
+  type EditionId,
+  formatRanges,
+  juzPages,
+  pageJuz,
+  pageLineCount,
+  pageRangeLabel,
+  range,
+  suraPages,
+  textLines,
+} from '../logic/quran';
 import { addQuestion, juzQuestions, newQuestion, rateQuestion } from '../logic/quiz';
 import type { QuizItem } from '../logic/profile';
 import { CoveredPage } from '../components/CoveredPage';
-import { streak } from '../logic/stats';
+import { streak, suraStatus } from '../logic/stats';
 import { useStore } from '../store';
-import { Check, Icon } from '../ui';
+import { Check, Icon, Seg } from '../ui';
 
 export interface ReadTarget {
   page: number;
@@ -344,6 +360,8 @@ export function Today({ onOpen, part }: { onOpen: (t: ReadTarget) => void; part:
   const rot = rotationInfo(profile, today);
   let stepNo = 0;
   const toggleOpen = (k: string) => setOpenPage((cur) => (cur === k ? null : k));
+  const learnMode = profile.learnChoice?.date === today ? profile.learnChoice.mode : null;
+  if (part === 'learn' && learnMode !== 'plan') return <LearnOwn asking={learnMode === null} onOpen={onOpen} />;
 
   return (
     <div>
@@ -396,6 +414,8 @@ export function Today({ onOpen, part }: { onOpen: (t: ReadTarget) => void; part:
           </div>
         </div>
       )}
+
+      {part === 'learn' && <LearnModeSwitch mode="plan" />}
 
       {part === 'review' && !hasBestand && (
         <div className="card empty">Noch kein Bestand eingetragen. Lege in den Einstellungen fest, welche Seiten du auswendig kannst.</div>
@@ -604,11 +624,7 @@ function Quiz({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
   };
 
   return (
-    <section>
-      <h2 className="section-title">Mini-Prüfung</h2>
-      <p className="small" style={{ margin: '-4px 0 10px' }}>
-        Ohne Vorlauf mitten in einer Seite einsteigen. Übergänge und Schwachstellen kommen öfter dran.
-      </p>
+    <Fold title="Mini-Prüfung" intro="Ohne Vorlauf mitten in einer Seite einsteigen. Übergänge und Schwachstellen kommen öfter dran.">
       {last && last.ok === null && (
         <div className="panel" style={{ padding: '14px 14px 12px' }}>
           <div className="serif" style={{ fontSize: 22, lineHeight: 1.35 }}>
@@ -642,7 +658,7 @@ function Quiz({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
             ))}
         </div>
       )}
-    </section>
+    </Fold>
   );
 }
 
@@ -665,12 +681,10 @@ function FreeReviews({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
   };
   const label = { sitzt: 'sitzt', wackelt: 'wackelt', fehler: 'Fehler' } as const;
   return (
-    <section>
-      <h2 className="section-title">Außerhalb des Plans</h2>
-      <p className="small" style={{ margin: '-4px 0 10px' }}>
-        Seiten, die du zusätzlich wiederholt hast, z. B. im Gebet oder unterwegs. Sie zählen für Festigung und Schwachstellen; der
-        Plan läuft unverändert weiter.
-      </p>
+    <Fold
+      title="Außerhalb des Plans"
+      intro="Seiten, die du zusätzlich wiederholt hast, z. B. im Gebet oder unterwegs. Sie zählen für Festigung und Schwachstellen; der Plan läuft unverändert weiter."
+    >
       <div className="free-form">
         <div>
           <label className="lbl" htmlFor="free-from">
@@ -710,7 +724,7 @@ function FreeReviews({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
             ))}
         </div>
       )}
-    </section>
+    </Fold>
   );
 }
 
@@ -757,11 +771,11 @@ function JuzQuiz() {
   const [pa, pb] = juzPages(ed, juz);
 
   return (
-    <section className="juz-quiz" ref={box}>
-      <h2 className="section-title">Juz-Quiz</h2>
-      <p className="small" style={{ margin: '-4px 0 10px' }}>
-        {QUIZ_SIZE} zufällige Stellen aus einem Juz. Die Zeile davor steht als Stichwort da, dann verdeckt weiterlesen.
-      </p>
+    <Fold
+      title="Juz-Quiz"
+      intro={`${QUIZ_SIZE} zufällige Stellen aus einem Juz. Die Zeile davor steht als Stichwort da, dann verdeckt weiterlesen.`}
+      boxRef={box}
+    >
 
       {!qs && (
         <div className="stack">
@@ -837,6 +851,288 @@ function JuzQuiz() {
           </button>
         </div>
       )}
+    </Fold>
+  );
+}
+
+/** Abschnitt mit Überschrift, der erst beim Antippen aufklappt. */
+function Fold({
+  title,
+  intro,
+  boxRef,
+  children,
+}: {
+  title: string;
+  intro?: ReactNode;
+  boxRef?: React.Ref<HTMLElement>;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="fold" ref={boxRef}>
+      <button type="button" className="fold-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <h2 className="section-title">{title}</h2>
+        <span className={`chev${open ? ' open' : ''}`} aria-hidden="true" />
+      </button>
+      {open && (
+        <>
+          {intro && (
+            <p className="small" style={{ margin: '-4px 0 10px' }}>
+              {intro}
+            </p>
+          )}
+          {children}
+        </>
+      )}
     </section>
+  );
+}
+
+type LearnMode = 'plan' | 'own';
+
+/** Umschalter oben in „Lernen“, nachdem man sich für heute entschieden hat. */
+function LearnModeSwitch({ mode }: { mode: LearnMode }) {
+  const { today, update } = useStore();
+  return (
+    <div style={{ margin: '0 0 14px' }}>
+      <Seg<LearnMode>
+        label="Was lernen"
+        value={mode}
+        onChange={(m) => update((p) => ({ ...p, learnChoice: { date: today, mode: m } }))}
+        options={[
+          { value: 'plan', label: 'Nach Plan' },
+          { value: 'own', label: 'Etwas Eigenes' },
+        ]}
+      />
+    </div>
+  );
+}
+
+/**
+ * „Lernen“ ohne Plan: zuerst die Frage, was heute gelernt wird; bei „Etwas Eigenes“
+ * Sura und Seiten wählen und dann Seite für Seite anhören, lesen und aufsagen.
+ */
+function LearnOwn({ asking, onOpen }: { asking: boolean; onOpen: (t: ReadTarget) => void }) {
+  const { profile, today, update, toast } = useStore();
+  const audio = useAudio();
+  const [editing, setEditing] = useState(false);
+  if (!profile) return null;
+  const ed = profile.edition;
+  const dars = darsTask(profile, today);
+  const choose = (mode: LearnMode) => update((p) => ({ ...p, learnChoice: { date: today, mode } }));
+
+  if (asking)
+    return (
+      <div>
+        <header className="today-head">
+          <div className="date">{formatLong(today)}</div>
+          <div className="status">Was möchtest du lernen?</div>
+        </header>
+        <div className="choice-list">
+          <button type="button" className="choice" onClick={() => choose('plan')}>
+            <b>Nach Plan</b>
+            <span>
+              {dars
+                ? `Dars S. ${dars.page} · ${dars.kind === 'portion' ? `Zeilen ${dars.from}–${dars.to}` : dars.kind === 'rehearsal' ? 'Probevortrag' : 'Vortrag'}`
+                : 'Die Dars-Portion des Tages'}
+            </span>
+          </button>
+          <button type="button" className="choice" onClick={() => choose('own')}>
+            <b>Etwas Eigenes</b>
+            <span>{profile.ownLearn ? `zuletzt ${SURAS[profile.ownLearn.sura - 1].tr}, ${pagesLabel(profile.ownLearn)}` : 'Sura und Seiten selbst wählen'}</span>
+          </button>
+        </div>
+      </div>
+    );
+
+  const own = profile.ownLearn;
+  const pages = own ? range(own.from, own.to) : [];
+  const bestand = effectiveBestand(profile, today);
+  const allKnown = pages.length > 0 && pages.every((p) => bestand.has(p));
+  return (
+    <div>
+      <header className="today-head">
+        <div className="date">{formatLong(today)}</div>
+        <div className="status">{own && !editing ? SURAS[own.sura - 1].tr : 'Etwas Eigenes lernen'}</div>
+      </header>
+      <LearnModeSwitch mode="own" />
+      {!own || editing ? (
+        <OwnPicker
+          initial={own}
+          onDone={(sel) => {
+            update((p) => ({ ...p, ownLearn: sel }));
+            setEditing(false);
+          }}
+          onCancel={own ? () => setEditing(false) : undefined}
+        />
+      ) : (
+        <>
+          <div className="row" style={{ alignItems: 'baseline', marginBottom: 8 }}>
+            <span className="sub" style={{ flex: 1 }}>
+              {pagesLabel(own)} · {spanLabel(ed, own.from, own.to)}
+            </span>
+            <button type="button" className="btn ghost" onClick={() => setEditing(true)}>
+              Ändern
+            </button>
+          </div>
+          <div className="panel">
+            <ol className="method own-pages">
+              {pages.map((p) => (
+                <li key={p}>
+                  <div className="what">
+                    S. {p}
+                    {bestand.has(p) ? ' ✓' : ''}
+                    <small>{pageRangeLabel(ed, p)}</small>
+                  </div>
+                  <div className="own-actions">
+                    {IS_ARTIFACT ? (
+                      <a className="btn" href={quranComPageUrl(p)} target="_blank" rel="noopener noreferrer" aria-label={`Seite ${p} auf quran.com anhören`}>
+                        <Icon name="play" />
+                      </a>
+                    ) : (
+                      <button type="button" className="btn" aria-label={`Seite ${p} anhören`} onClick={() => void audio.play({ edition: ed, page: p })}>
+                        <Icon name="play" />
+                      </button>
+                    )}
+                    <button type="button" className="btn" onClick={() => onOpen({ page: p, counter: true })}>
+                      Lesen
+                    </button>
+                    <button type="button" className="btn" onClick={() => onOpen({ page: p, startLine: 1 })}>
+                      Prüfen
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <p className="hint">Je Seite: mehrmals anhören, lesen bis es flüssig ist (ca. 10×), dann verdeckt aus dem Gedächtnis aufsagen.</p>
+          {!allKnown && (
+            <button
+              type="button"
+              className="btn primary block mark-done"
+              onClick={() => {
+                update((pr) => ({ ...pr, bestand: [...new Set([...pr.bestand, ...pages])].sort((a, b) => a - b) }));
+                toast(`${pagesLabel(own)} als auswendig eingetragen`);
+              }}
+            >
+              Sitzt – als auswendig eintragen
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Ajat von Anfang der ersten bis Ende der letzten Seite, z. B. „Fuṣṣilat 1–54“ */
+function spanLabel(ed: EditionId, from: number, to: number): string {
+  const [s1, a1] = meta(ed).pageFirst[from - 1];
+  const [s2, a2] = meta(ed).pageLast[to - 1];
+  return s1 === s2 ? `${suraName(s1)} ${a1}–${a2}` : `${suraName(s1)} ${a1} – ${suraName(s2)} ${a2}`;
+}
+
+const pagesLabel = (o: { from: number; to: number }) => (o.from === o.to ? `S. ${o.from}` : `S. ${o.from}–${o.to}`);
+
+/** Sura wählen, dann die Seiten darin (Standard: die ganze Sura). */
+function OwnPicker({
+  initial,
+  onDone,
+  onCancel,
+}: {
+  initial?: { sura: number; from: number; to: number };
+  onDone: (sel: { sura: number; from: number; to: number }) => void;
+  onCancel?: () => void;
+}) {
+  const { profile, today } = useStore();
+  const ed = profile?.edition ?? '1405';
+  // Vorschlag: eine Sura, die gerade gelernt wird, sonst von hinten die erste noch nicht auswendige
+  const [sura, setSura] = useState(() => {
+    if (initial) return initial.sura;
+    if (profile?.learning?.length) return profile.learning[0];
+    const st = profile ? suraStatus(profile, today) : [];
+    return [...st].reverse().find((x) => x.state !== 'auswendig')?.sura ?? 114;
+  });
+  const [a, b] = suraPages(ed, sura);
+  const [from, setFrom] = useState(initial?.from ?? a);
+  const [to, setTo] = useState(initial?.to ?? b);
+  const pages = range(a, b);
+  const pick = (n: number) => {
+    const [x, y] = suraPages(ed, n);
+    setSura(n);
+    setFrom(x);
+    setTo(y);
+  };
+  return (
+    <div className="stack">
+      <div>
+        <label className="lbl" htmlFor="own-sura">
+          Sura
+        </label>
+        <select id="own-sura" className="field" value={sura} onChange={(e) => pick(Number(e.target.value))}>
+          {SURAS.map((s) => {
+            const [x, y] = suraPages(ed, s.n);
+            return (
+              <option key={s.n} value={s.n}>
+                {s.n}. {s.tr} (S. {x === y ? x : `${x}–${y}`})
+              </option>
+            );
+          })}
+        </select>
+      </div>
+      {pages.length > 1 && (
+        <div className="range-row">
+          <div>
+            <label className="lbl" htmlFor="own-from">
+              Von Seite
+            </label>
+            <select
+              id="own-from"
+              className="field"
+              value={from}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setFrom(v);
+                if (v > to) setTo(v);
+              }}
+            >
+              {pages.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="lbl" htmlFor="own-to">
+              Bis Seite
+            </label>
+            <select
+              id="own-to"
+              className="field"
+              value={to}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setTo(v);
+                if (v < from) setFrom(v);
+              }}
+            >
+              {pages.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+      <button type="button" className="btn primary block" onClick={() => onDone({ sura, from, to })}>
+        {from === to ? `S. ${from} lernen` : `S. ${from}–${to} lernen`}
+      </button>
+      {onCancel && (
+        <button type="button" className="btn block" onClick={onCancel}>
+          Abbrechen
+        </button>
+      )}
+    </div>
   );
 }

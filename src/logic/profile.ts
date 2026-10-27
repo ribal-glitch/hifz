@@ -85,6 +85,12 @@ export interface Profile {
   echoPause?: boolean;
   /** Tempo für den Ziel-Rechner: neue Seiten pro Woche */
   goalPace?: number;
+  /** Suren, die gerade gelernt werden (in „Fortschritt“ als „im Dars“ markiert) */
+  learning?: number[];
+  /** Antwort auf „Was möchtest du lernen?“, gilt für einen Tag */
+  learnChoice?: { date: ISODate; mode: 'plan' | 'own' };
+  /** Selbst gewählter Lernstoff: Sura und Seiten */
+  ownLearn?: { sura: number; from: number; to: number };
   /** Zeitpunkt der letzten Änderung, zum Abgleich zwischen Geräten */
   updatedAt?: string;
 }

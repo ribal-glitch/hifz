@@ -13,8 +13,8 @@ import {
   markMilestonesSeen,
   newMilestones,
   pagesForMilestone,
+  cycleSuraState,
   progress,
-  setSuraMemorized,
   streak,
   suraStatus,
   type SuraState,
@@ -219,13 +219,12 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
 
       <h2 className="section-title">Suren</h2>
       <p className="hint" style={{ marginTop: 0 }}>
-        Tippe auf den Status, um eine Sura als auswendig einzutragen oder wieder auszutragen.
+        Tippe auf den Status, um ihn weiterzuschalten: offen → im Dars → auswendig → offen.
       </p>
       <div>
         {suras.map((s) => {
           const meta = SURAS[s.sura - 1];
           const open = openSura === s.sura;
-          const known = s.state === 'auswendig';
           return (
             <div key={s.sura}>
               <div className="index-row sura-row">
@@ -237,11 +236,11 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
                 <button
                   type="button"
                   className={`state-pill ${s.state}`}
-                  aria-pressed={known}
-                  aria-label={`${meta.tr}: ${SURA_LABEL[s.state]}. ${known ? 'Wieder als offen markieren' : 'Als auswendig markieren'}`}
+                  aria-label={`${meta.tr}: ${SURA_LABEL[s.state]}. Tippen zum Weiterschalten`}
                   onClick={() => {
-                    update((p) => setSuraMemorized(p, today, s.sura, !known));
-                    toast(known ? `${meta.tr} ausgetragen` : `${meta.tr} als auswendig eingetragen`);
+                    const next = suraStatus(cycleSuraState(profile, today, s.sura), today)[s.sura - 1].state;
+                    update((p) => cycleSuraState(p, today, s.sura));
+                    toast(`${meta.tr}: ${SURA_LABEL[next]}`);
                   }}
                 >
                   {s.state === 'teilweise' ? `${s.done}/${s.total} S.` : SURA_LABEL[s.state]}
