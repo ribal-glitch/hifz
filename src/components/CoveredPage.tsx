@@ -18,9 +18,25 @@ function readFirstWord(): boolean {
  * Mushaf-Seite zum Abfragen direkt in der Liste: verdeckt, ein Tipp deckt die nächste Zeile auf.
  * Mit `from` beginnt das Verdecken erst ab dieser Zeile; mit `cue` bleibt nur die Zeile davor
  * als Stichwort stehen und alles darüber ist ebenfalls verdeckt (Prüfung mitten auf der Seite).
+ * Mit `read` ist nichts verdeckt: zum Lesen, mit hervorgehobenen Zeilen `hl` und Wiederholungszähler.
  */
-export function CoveredPage({ edition, page, from = 1, cue = false }: { edition: EditionId; page: number; from?: number; cue?: boolean }) {
+export function CoveredPage({
+  edition,
+  page,
+  from = 1,
+  cue = false,
+  read = false,
+  hl,
+}: {
+  edition: EditionId;
+  page: number;
+  from?: number;
+  cue?: boolean;
+  read?: boolean;
+  hl?: [number, number];
+}) {
   const data = useMushafData(edition);
+  const [count, setCount] = useState(0);
   const [revealed, setRevealed] = useState(0);
   const [showAll, setShowAll] = useState(false);
   const [firstWord, setFirstWordState] = useState(readFirstWord);
@@ -65,21 +81,28 @@ export function CoveredPage({ edition, page, from = 1, cue = false }: { edition:
   const coverable = lines.map((l, i) => (l[0] === 't' && i + 1 >= from ? i + 1 : 0)).filter(Boolean);
   const open = new Set(coverable.slice(0, revealed));
   const isHidden = (n: number, isText: boolean) => {
-    if (showAll || !isText) return false;
+    if (read || showAll || !isText) return false;
     if (n >= from) return !open.has(n);
     return cue && n < from - 1;
   };
   const done = showAll || revealed >= coverable.length;
-  const next = () => setRevealed((r) => Math.min(coverable.length, r + 1));
+  const next = () => !read && setRevealed((r) => Math.min(coverable.length, r + 1));
 
   return (
     <div className="covered-page">
-      <div className="mushaf inline" ref={box} style={{ fontSize: fs }} onClick={next} aria-label={`Seite ${page}, verdeckt`}>
+      <div
+        className={`mushaf inline${read ? ' reading' : ''}`}
+        ref={box}
+        style={{ fontSize: fs }}
+        onClick={next}
+        aria-label={read ? `Seite ${page}` : `Seite ${page}, verdeckt`}
+      >
         {lines.map((line, i) => {
           const n = i + 1;
           const hidden = isHidden(n, line[0] === 't');
           const covered = hidden && !firstWord;
-          const cls = ['mline', covered ? 'hidden' : '', cue && n === from - 1 ? 'hl' : '', line[0] === 'h' ? 'sura-head' : '']
+          const isHl = (cue && n === from - 1) || (!!hl && n >= hl[0] && n <= hl[1]);
+          const cls = ['mline', covered ? 'hidden' : '', isHl ? 'hl' : '', line[0] === 'h' ? 'sura-head' : '']
             .filter(Boolean)
             .join(' ');
           return (
@@ -122,26 +145,44 @@ export function CoveredPage({ edition, page, from = 1, cue = false }: { edition:
           );
         })}
       </div>
-      <div className="switch-bar single">
-        <Switch label="Erstes Wort jeder Ajah zeigen" on={firstWord} onChange={setFirstWord} />
-      </div>
-      <div className="hifz-bar">
-        <button type="button" className="btn primary" onClick={next} disabled={done}>
-          Nächste Zeile
-        </button>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => {
-            if (done) {
-              setShowAll(false);
-              setRevealed(0);
-            } else setShowAll(true);
-          }}
-        >
-          {done ? 'Neu verdecken' : 'Alles zeigen'}
-        </button>
-      </div>
+      {read ? (
+        <div className="counter" aria-live="polite">
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600 }}>Wiederholungen</div>
+            <div className="small">Ziel: etwa 10× flüssig lesen</div>
+          </div>
+          <button type="button" className="iconbtn" aria-label="Eine Wiederholung zurück" onClick={() => setCount(Math.max(0, count - 1))}>
+            −
+          </button>
+          <span className="n">{count}</span>
+          <button type="button" className="btn primary" aria-label="Wiederholung zählen" onClick={() => setCount(count + 1)}>
+            +1
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="switch-bar single">
+            <Switch label="Erstes Wort jeder Ajah zeigen" on={firstWord} onChange={setFirstWord} />
+          </div>
+          <div className="hifz-bar">
+            <button type="button" className="btn primary" onClick={next} disabled={done}>
+              Nächste Zeile
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                if (done) {
+                  setShowAll(false);
+                  setRevealed(0);
+                } else setShowAll(true);
+              }}
+            >
+              {done ? 'Neu verdecken' : 'Alles zeigen'}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -2627,22 +2627,41 @@ a.btn.primary {
   font-size: 14.5px;
 }
 
-.own-pages .what {
-  font-weight: 600;
+/* ---------- Lernschritte: abhaken, Seite darunter öffnen ---------- */
+
+.method li {
+  flex-wrap: wrap;
 }
 
-.own-pages .what small {
-  font-weight: 400;
-}
-
-.own-actions {
+.method-actions {
   display: flex;
   flex: none;
   gap: 6px;
 }
 
-.own-actions .btn {
+.method-actions .btn {
   min-height: 40px;
   padding: 0 12px;
   font-size: 14.5px;
+}
+
+/* Mehrere Knöpfe: in eigener Zeile unter Titel und Häkchen */
+.method li.stacked .method-actions {
+  order: 3;
+  flex-basis: 100%;
+  padding-left: 28px;
+}
+
+.method li.stacked .method-inline {
+  order: 4;
+}
+
+.method li.done .what {
+  color: var(--muted);
+}
+
+.method-inline {
+  flex-basis: 100%;
+  min-width: 0;
+  margin-top: 4px;
 }

@@ -216,6 +216,14 @@ export function setDarsDone(profile: Profile, date: ISODate, done: boolean): Pro
   return updateDayRecord(profile, date, (d) => ({ ...d, darsDone: done }));
 }
 
+/** Einzelnen Lernschritt abhaken oder wieder öffnen. */
+export function toggleStep(profile: Profile, date: ISODate, id: string): Profile {
+  return updateDayRecord(profile, date, (d) => {
+    const steps = d.steps ?? [];
+    return { ...d, steps: steps.includes(id) ? steps.filter((s) => s !== id) : [...steps, id] };
+  });
+}
+
 export function toggleFresh(profile: Profile, date: ISODate, page: number): Profile {
   return updateDayRecord(profile, date, (d) => ({
     ...d,

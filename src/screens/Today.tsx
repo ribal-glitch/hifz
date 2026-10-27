@@ -16,6 +16,7 @@ import {
   rotationInfo,
   setDarsDone,
   setNote,
+  toggleStep,
   toggleFresh,
   logFreeReview,
   removeFreeReview,
@@ -210,134 +211,179 @@ function PageLink({ page, onOpen, children }: { page: number; onOpen: () => void
   );
 }
 
-/** Lernschritte für die Dars-Seite: anhören, lesen, auswendig prüfen, verbinden. */
-function DarsMethod({ task, onOpen }: { task: DarsTask; onOpen: (t: ReadTarget) => void }) {
-  const { profile, today } = useStore();
+/** Was ein Lernschritt direkt darunter öffnet: die Seite zum Lesen oder verdeckt zum Aufsagen. */
+type InlineView = { mode: 'read'; page: number; hl?: [number, number] } | { mode: 'cover'; page: number; from: number };
+
+export interface MethodItem {
+  /** Kennung zum Abhaken, eindeutig für den Tag */
+  id: string;
+  what: ReactNode;
+  detail: string;
+  /** Anhören (Knopf oder Link) oder Ansichten, die sich darunter öffnen */
+  actions: (ReactNode | InlineView)[];
+}
+
+const isView = (a: ReactNode | InlineView): a is InlineView => !!a && typeof a === 'object' && 'mode' in a;
+
+/**
+ * Liste von Lernschritten: jeder lässt sich abhaken, „Lesen“ und „Prüfen“ öffnen die Seite
+ * direkt unter dem Schritt, damit man in „Lernen“ bleibt.
+ */
+function MethodList({ items, onAllDone, stacked }: { items: MethodItem[]; onAllDone?: () => void; stacked?: boolean }) {
+  const { profile, today, update } = useStore();
+  const [open, setOpen] = useState<string | null>(null);
+  if (!profile) return null;
+  const done = new Set(profile.days[today]?.steps ?? []);
+  const toggle = (id: string) => {
+    const nowDone = !done.has(id);
+    update((p) => toggleStep(p, today, id));
+    if (nowDone && onAllDone && items.every((it) => it.id === id || done.has(it.id))) onAllDone();
+  };
+  return (
+    <div className="panel">
+      <ol className="method">
+        {items.map((it) => {
+          const openIdx = it.actions.findIndex((_, i) => open === `${it.id}#${i}`);
+          const view = openIdx >= 0 ? (it.actions[openIdx] as InlineView) : null;
+          return (
+            <li key={it.id} className={[done.has(it.id) ? 'done' : '', stacked ? 'stacked' : ''].filter(Boolean).join(' ') || undefined}>
+              <div className="what">
+                {it.what}
+                <small>{it.detail}</small>
+              </div>
+              <div className="method-actions">
+                {it.actions.map((a, i) => {
+                  if (!isView(a)) return <span key={i}>{a}</span>;
+                  const key = `${it.id}#${i}`;
+                  const isOpen = open === key;
+                  return (
+                    <button key={i} type="button" className="btn" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}>
+                      {isOpen ? 'Zu' : a.mode === 'read' ? 'Lesen' : 'Prüfen'}
+                    </button>
+                  );
+                })}
+              </div>
+              <Check small on={done.has(it.id)} onToggle={() => toggle(it.id)} label={`${typeof it.what === 'string' ? it.what : 'Schritt'} erledigt`} />
+              {view && (
+                <div className="method-inline">
+                  {view.mode === 'read' ? (
+                    <CoveredPage key={`r-${view.page}`} edition={profile.edition} page={view.page} read hl={view.hl} />
+                  ) : (
+                    <CoveredPage key={`c-${view.page}-${view.from}`} edition={profile.edition} page={view.page} from={view.from} />
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+/** Knopf zum Anhören: in der Link-Version auf quran.com, sonst im eigenen Player. */
+function ListenButton({ page, from, to, repeatEach, label }: { page: number; from?: number; to?: number; repeatEach?: number; label?: string }) {
+  const { profile } = useStore();
   const audio = useAudio();
+  if (!profile) return null;
+  return IS_ARTIFACT ? (
+    <a
+      className="btn"
+      href={from && to ? listenUrl(profile.edition, page, from, to) : quranComPageUrl(page)}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label === '' ? `Seite ${page} auf quran.com anhören` : undefined}
+    >
+      <Icon name="play" /> {label ?? 'Hören'}
+    </a>
+  ) : (
+    <button
+      type="button"
+      className="btn"
+      aria-label={label === '' ? `Seite ${page} anhören` : undefined}
+      onClick={() => void audio.play({ edition: profile.edition, page, from, to, repeatEach })}
+    >
+      <Icon name="play" /> {label ?? 'Hören'}
+    </button>
+  );
+}
+
+/** Lernschritte für die Dars-Seite: anhören, lesen, auswendig prüfen, verbinden. */
+function DarsMethod({ task }: { task: DarsTask }) {
+  const { profile, today, update } = useStore();
   useLayoutReady(profile?.edition ?? '1405');
   if (!profile) return null;
   const reps = profile.repeatEach ?? 3;
   const reciter = reciterById(profile.reciter);
-  const listen = (from?: number, to?: number, repeatEach?: number) =>
-    void audio.play({ edition: profile.edition, page: task.page, from, to, repeatEach });
-  // In der Link-Version gibt es keinen eigenen Player: Rezitation auf quran.com öffnen
-  const listenButton = (from?: number, to?: number, repeatEach?: number) =>
-    IS_ARTIFACT ? (
-      <a className="btn" href={listenUrl(profile.edition, task.page, from, to)} target="_blank" rel="noopener noreferrer">
-        <Icon name="play" /> Hören
-      </a>
-    ) : (
-      <button type="button" className="btn" onClick={() => listen(from, to, repeatEach)}>
-        <Icon name="play" /> Hören
-      </button>
-    );
   const prevLearned = effectiveBestand(profile, today).has(task.page - 1);
 
-  const items: { what: ReactNode; detail: string; action: ReactNode }[] = [];
+  const items: MethodItem[] = [];
   if (task.kind === 'portion') {
     const range = `Zeilen ${task.from}–${task.to}`;
     items.push({
+      id: 'listen',
       what: 'Anhören',
       detail: IS_ARTIFACT ? 'mehrmals, auf quran.com' : `jede Ajah ${reps}× · ${reciter.name.split(' ').slice(-1)[0]}`,
-      action: listenButton(task.from, task.to),
+      actions: [<ListenButton page={task.page} from={task.from} to={task.to} />],
     });
     items.push({
+      id: 'read',
       what: 'Lesen, bis es flüssig ist',
       detail: 'ca. 10× laut, mit Blick in den Mushaf',
-      action: (
-        <button type="button" className="btn" onClick={() => onOpen({ page: task.page, from: task.from, to: task.to, counter: true })}>
-          Lesen
-        </button>
-      ),
+      actions: [{ mode: 'read', page: task.page, hl: [task.from, task.to] }],
     });
     items.push({
+      id: 'recite',
       what: 'Auswendig aufsagen',
       detail: `${range} ohne Blick, dann aufdecken`,
-      action: (
-        <button type="button" className="btn" onClick={() => onOpen({ page: task.page, from: task.from, to: task.to, startLine: task.from })}>
-          Prüfen
-        </button>
-      ),
+      actions: [{ mode: 'cover', page: task.page, from: task.from }],
     });
     if (task.day > 0) {
       items.push({
+        id: 'connect',
         what: 'Verbinden',
         detail: `Zeilen 1–${task.to} am Stück`,
-        action: (
-          <button type="button" className="btn" onClick={() => onOpen({ page: task.page, startLine: 1 })}>
-            Prüfen
-          </button>
-        ),
+        actions: [{ mode: 'cover', page: task.page, from: 1 }],
       });
     } else if (prevLearned) {
+      const lines = textLines(profile.edition, task.page - 1);
       items.push({
+        id: 'transition',
         what: 'Übergang',
         detail: `Letzte 2 Zeilen von S. ${task.page - 1}, dann nahtlos weiter`,
-        action: (
-          <button
-            type="button"
-            className="btn"
-            onClick={() => {
-              const lines = textLines(profile.edition, task.page - 1);
-              onOpen({ page: task.page - 1, startLine: lines[lines.length - 2] });
-            }}
-          >
-            Prüfen
-          </button>
-        ),
+        actions: [{ mode: 'cover', page: task.page - 1, from: lines[lines.length - 2] }],
       });
     }
   } else if (task.kind === 'rehearsal') {
     items.push({
+      id: 'listen',
       what: 'Ganze Seite anhören',
       detail: 'einmal durchgehend, auf Tajwīd achten',
-      action: listenButton(undefined, undefined, 1),
+      actions: [<ListenButton page={task.page} repeatEach={1} />],
     });
     items.push({
+      id: 'rehearse',
       what: 'Probevortrag',
       detail: 'ganze Seite auswendig, bis sie 3× fehlerfrei sitzt',
-      action: (
-        <button type="button" className="btn" onClick={() => onOpen({ page: task.page, startLine: 1 })}>
-          Prüfen
-        </button>
-      ),
+      actions: [{ mode: 'cover', page: task.page, from: 1 }],
     });
     if (prevLearned)
       items.push({
+        id: 'connect',
         what: 'Mit der Vorseite verbinden',
         detail: `ab S. ${task.page - 1} durchgehend aufsagen`,
-        action: (
-          <button type="button" className="btn" onClick={() => onOpen({ page: task.page - 1, startLine: 1 })}>
-            Prüfen
-          </button>
-        ),
+        actions: [{ mode: 'cover', page: task.page - 1, from: 1 }],
       });
   } else {
     items.push({
+      id: 'lecture',
       what: 'Vor dem Vortrag',
       detail: 'einmal anhören und einmal auswendig aufsagen',
-      action: (
-        <button type="button" className="btn" onClick={() => onOpen({ page: task.page, startLine: 1 })}>
-          Prüfen
-        </button>
-      ),
+      actions: [{ mode: 'cover', page: task.page, from: 1 }],
     });
   }
-  return (
-    <div className="panel">
-      <ol className="method">
-        {items.map((it, i) => (
-          <li key={i}>
-            <div className="what">
-              {it.what}
-              <small>{it.detail}</small>
-            </div>
-            {it.action}
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
+  // Alle Schritte abgehakt: die Portion gilt als gelernt
+  return <MethodList items={items} onAllDone={() => update((p) => setDarsDone(p, today, true))} />;
 }
 
 /** Zwei Seiten: „Lernen“ (neue Dars-Portion, Notiz) und „Wiederholen“ (frische Seiten, Murājaʿa, Prüfung). */
@@ -361,7 +407,7 @@ export function Today({ onOpen, part }: { onOpen: (t: ReadTarget) => void; part:
   let stepNo = 0;
   const toggleOpen = (k: string) => setOpenPage((cur) => (cur === k ? null : k));
   const learnMode = profile.learnChoice?.date === today ? profile.learnChoice.mode : null;
-  if (part === 'learn' && learnMode !== 'plan') return <LearnOwn asking={learnMode === null} onOpen={onOpen} />;
+  if (part === 'learn' && learnMode !== 'plan') return <LearnOwn asking={learnMode === null} />;
 
   return (
     <div>
@@ -445,7 +491,7 @@ export function Today({ onOpen, part }: { onOpen: (t: ReadTarget) => void; part:
             onToggle={() => update((p) => setDarsDone(p, today, !p.days[today]?.darsDone))}
             toggleLabel="Dars erledigt"
           >
-            <DarsMethod task={dars} onOpen={onOpen} />
+            <DarsMethod task={dars} />
             <div className="weekstrip" aria-label="Dars-Woche">
               {Array.from({ length: 7 }, (_, i) => {
                 const d = addDays(cycleStart(today, profile.dars.weekday), i);
@@ -912,9 +958,8 @@ function LearnModeSwitch({ mode }: { mode: LearnMode }) {
  * „Lernen“ ohne Plan: zuerst die Frage, was heute gelernt wird; bei „Etwas Eigenes“
  * Sura und Seiten wählen und dann Seite für Seite anhören, lesen und aufsagen.
  */
-function LearnOwn({ asking, onOpen }: { asking: boolean; onOpen: (t: ReadTarget) => void }) {
+function LearnOwn({ asking }: { asking: boolean }) {
   const { profile, today, update, toast } = useStore();
-  const audio = useAudio();
   const [editing, setEditing] = useState(false);
   if (!profile) return null;
   const ed = profile.edition;
@@ -975,36 +1020,15 @@ function LearnOwn({ asking, onOpen }: { asking: boolean; onOpen: (t: ReadTarget)
               Ändern
             </button>
           </div>
-          <div className="panel">
-            <ol className="method own-pages">
-              {pages.map((p) => (
-                <li key={p}>
-                  <div className="what">
-                    S. {p}
-                    {bestand.has(p) ? ' ✓' : ''}
-                    <small>{pageRangeLabel(ed, p)}</small>
-                  </div>
-                  <div className="own-actions">
-                    {IS_ARTIFACT ? (
-                      <a className="btn" href={quranComPageUrl(p)} target="_blank" rel="noopener noreferrer" aria-label={`Seite ${p} auf quran.com anhören`}>
-                        <Icon name="play" />
-                      </a>
-                    ) : (
-                      <button type="button" className="btn" aria-label={`Seite ${p} anhören`} onClick={() => void audio.play({ edition: ed, page: p })}>
-                        <Icon name="play" />
-                      </button>
-                    )}
-                    <button type="button" className="btn" onClick={() => onOpen({ page: p, counter: true })}>
-                      Lesen
-                    </button>
-                    <button type="button" className="btn" onClick={() => onOpen({ page: p, startLine: 1 })}>
-                      Prüfen
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
+          <MethodList
+            stacked
+            items={pages.map((p) => ({
+              id: `own:${p}`,
+              what: `S. ${p}${bestand.has(p) ? ' ✓' : ''}`,
+              detail: pageRangeLabel(ed, p),
+              actions: [<ListenButton page={p} label="" />, { mode: 'read', page: p }, { mode: 'cover', page: p, from: 1 }],
+            }))}
+          />
           <p className="hint">Je Seite: mehrmals anhören, lesen bis es flüssig ist (ca. 10×), dann verdeckt aus dem Gedächtnis aufsagen.</p>
           {!allKnown && (
             <button

@@ -42,6 +42,8 @@ export interface DayRecord {
   ratings: Record<number, Rating>;
   note: string;
   quiz: QuizItem[];
+  /** Abgehakte Lernschritte des Tages, z. B. „listen“ oder „own:562“ */
+  steps?: string[];
   /** Selbst eingetragene Wiederholungen außerhalb des Plans */
   free?: FreeReview[];
   /** Alle Karten des Tages erledigt */
