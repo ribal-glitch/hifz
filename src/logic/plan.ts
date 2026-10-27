@@ -245,6 +245,16 @@ export function ratePage(profile: Profile, date: ISODate, page: number, r: Ratin
   return p;
 }
 
+/** Frische Seite bewerten: zählt als aufgesagt und fließt wie eine Murājaʿa-Bewertung in den Seitenstand ein. */
+export function rateFresh(profile: Profile, date: ISODate, page: number, r: Rating): Profile {
+  const p = updateDayRecord(profile, date, (d) => ({
+    ...d,
+    freshDone: d.freshDone.includes(page) ? d.freshDone : [...d.freshDone, page],
+    ratings: { ...d.ratings, [page]: r },
+  }));
+  return applyRating(p, date, page, r);
+}
+
 function withoutPrev({ prev: _ignored, ...rest }: PageState): PageState {
   return rest;
 }
@@ -293,7 +303,9 @@ export function removeFreeReview(profile: Profile, date: ISODate, page: number):
 export function reviewedCount(profile: Profile, date: ISODate): { plan: number; free: number } {
   const d = profile.days[date];
   if (!d) return { plan: 0, free: 0 };
-  return { plan: Object.keys(d.ratings).length + d.freshDone.length, free: d.free?.length ?? 0 };
+  // Frische Seiten können zugleich abgehakt und bewertet sein: jede Seite nur einmal zählen
+  const plan = new Set([...Object.keys(d.ratings).map(Number), ...d.freshDone]).size;
+  return { plan, free: d.free?.length ?? 0 };
 }
 
 export function setNote(profile: Profile, date: ISODate, note: string): Profile {

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { RECITERS, REPEAT_OPTIONS, listenUrl, reciterById, useAudio } from '../audio';
+import { REPEAT_OPTIONS, ayahRangeLabel, ayahsForLines, rangeUrl, reciterById, sliceAyahs, useAudio } from '../audio';
+import { AyahRange, ReciterSelect } from '../components/Listen';
+import { FONT, GAP_EM, MIN_FS, clearWidthCache, fitFontSize, wordLines } from '../components/mushaf';
 import { IS_ARTIFACT, quranComUrl } from '../platform';
 import { ayahKey, useMushafData, type LineData, type TextData } from '../data/quranData';
 import {
@@ -22,10 +24,6 @@ import { TRANSLATIONS, useTranslation, type TranslationId } from '../data/transl
 import { suraStatus } from '../logic/stats';
 import type { ReadTarget } from './Today';
 
-const FONT = '"KFGQPC Hafs"';
-const GAP_EM = 0.12;
-const MAX_FS = 30;
-const MIN_FS = 14;
 
 /** Innenabstand der Seite oben und unten zusammen (siehe .mushaf) */
 const PAGE_PAD_V = 26;
@@ -49,39 +47,6 @@ function readLastPage(id: string): number {
   } catch {
     return 0;
   }
-}
-
-let measureCtx: CanvasRenderingContext2D | null = null;
-const widthCache = new Map<string, number>();
-function wordWidth(w: string): number {
-  let v = widthCache.get(w);
-  if (v === undefined) {
-    measureCtx ??= document.createElement('canvas').getContext('2d');
-    if (!measureCtx) return w.length * 50;
-    measureCtx.font = `100px ${FONT}`;
-    v = measureCtx.measureText(w).width;
-    widthCache.set(w, v);
-  }
-  return v;
-}
-
-function lineWords(line: LineData, text: TextData): string[] {
-  if (line[0] !== 't') return [];
-  return line[1].flatMap(([idx, from, to]) => text.ayahs[idx].slice(from, to));
-}
-
-/** Größte Schriftgröße, bei der jede Zeile der Seite in die Breite passt. */
-function fitFontSize(lines: LineData[], text: TextData, width: number): number {
-  // Obergrenze relativ zur Breite, damit locker gesetzte Seiten nicht sprunghaft größer werden
-  let fs = Math.min(MAX_FS, width * 0.064);
-  for (const line of lines) {
-    if (line[0] !== 't') continue;
-    const words = lineWords(line, text);
-    const natural = words.reduce((s, w) => s + wordWidth(w), 0) + (words.length - 1) * GAP_EM * 100;
-    const avail = width * (line[2] ?? 1);
-    fs = Math.min(fs, (avail / natural) * 100);
-  }
-  return Math.max(MIN_FS, Math.floor(fs * 10) / 10);
 }
 
 export function Read({
@@ -239,7 +204,7 @@ export function Read({
   }, [lines, view, trans]);
   useEffect(() => {
     document.fonts.load(`100px ${FONT}`).then(() => {
-      widthCache.clear();
+      clearWidthCache();
       setFontReady(true);
     });
   }, []);
@@ -262,21 +227,16 @@ export function Read({
   }
 
   // ---------- Hifz-Modus ----------
-  // Im Mushaf wird Zeile für Zeile aufgedeckt, mit Übersetzung Ajah für Ajah
+  // Zeile für Zeile aufdecken, auch in der Ansicht mit Übersetzung (dort die Wörter jeder Mushaf-Zeile)
   const coverFrom = hl?.start ?? 1;
-  const coverable = lines
-    ? trans
-      ? pageAyahs(lines, coverFrom)
-      : lines.map((l, i) => (l[0] === 't' && i + 1 >= coverFrom ? i + 1 : 0)).filter(Boolean)
-    : [];
+  const coverable = lines ? lines.map((l, i) => (l[0] === 't' && i + 1 >= coverFrom ? i + 1 : 0)).filter(Boolean) : [];
   const hiddenSet = new Set(hifz ? coverable.slice(revealed) : []);
   const revealNext = () => setRevealed((r) => Math.min(coverable.length, r + 1));
-  const unit = trans ? 'Ajah' : 'Zeile';
 
-  /** Ein Wort der Ajah, mit Tajwīd-Farben und ggf. ausgeblendet (Hinweis-Modus). */
-  const renderWord = (idx: number, wi: number, w: string, masked: boolean, ayahWords: string[]) => {
+  /** Ein Wort der Ajah, mit Tajwīd-Farben und ggf. ausgeblendet (Hinweis-Modus oder ganz verdeckt). */
+  const renderWord = (idx: number, wi: number, w: string, masked: boolean, ayahWords: string[], full = false) => {
     const isMarker = wi === ayahWords.length - 1;
-    const hide = masked && !(wi === 0 || isMarker);
+    const hide = full || (masked && !(wi === 0 || isMarker));
     const c = ['w', playingAyah === idx ? 'playing' : '', sel === idx ? 'sel' : '', hide ? 'masked' : ''].filter(Boolean).join(' ');
     const tj = tajweed && !hide && !isMarker ? piecesOf(idx, ayahWords)[wi] : null;
     return (
@@ -387,28 +347,16 @@ export function Read({
               <Icon name="info" />
             </button>
           )}
-          {IS_ARTIFACT ? (
-            <a
-              className="iconbtn"
-              href={listenUrl(ed, page, hl?.from, hl?.to)}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Auf quran.com anhören"
-            >
-              <Icon name="play" />
-            </a>
-          ) : (
-            <button
-              type="button"
-              className="iconbtn"
-              aria-pressed={isPlayingHere}
-              aria-label={isPlayingHere ? 'Wiedergabe beenden' : 'Anhören'}
-              onClick={() => (isPlayingHere ? audio.stop() : setListen(true))}
-              disabled={!lines}
-            >
-              <Icon name={isPlayingHere ? 'pause' : 'play'} />
-            </button>
-          )}
+          <button
+            type="button"
+            className="iconbtn"
+            aria-pressed={isPlayingHere}
+            aria-label={isPlayingHere ? 'Wiedergabe beenden' : 'Anhören'}
+            onClick={() => (isPlayingHere ? audio.stop() : setListen(true))}
+            disabled={!lines}
+          >
+            <Icon name={isPlayingHere ? 'pause' : 'play'} />
+          </button>
         </div>
         <div className="switch-bar" role="group" aria-label="Ansicht">
           <Switch
@@ -554,7 +502,7 @@ export function Read({
           </div>
           <div className="hifz-bar">
             <button type="button" className="btn primary" onClick={revealNext} disabled={revealed >= coverable.length}>
-              Nächste {unit}
+              Nächste Zeile
             </button>
             <button type="button" className="btn" onClick={() => setRevealed(revealed >= coverable.length ? 0 : coverable.length)}>
               {revealed >= coverable.length ? 'Neu verdecken' : 'Alles zeigen'}
@@ -578,14 +526,15 @@ export function Read({
         </Sheet>
       )}
 
-      {listen && (
+      {listen && data && data !== 'error' && (
         <ListenSheet
           page={page}
-          hl={hl?.from !== undefined && hl.to !== undefined ? [hl.from, hl.to] : null}
+          all={ayahsForLines(data.layout, page)}
+          hl={hl?.from !== undefined && hl.to !== undefined ? ayahsForLines(data.layout, page, hl.from, hl.to).filter((a) => a >= 0) : null}
           onClose={() => setListen(false)}
-          onPlay={(from, to, repeatEach, rounds, reciter) => {
+          onPlay={(ayahs, label, repeatEach, rounds, reciter) => {
             setListen(false);
-            void audio.play({ edition: ed, page, from, to, repeatEach, rounds, reciter });
+            void audio.play({ edition: ed, page, ayahs, label, repeatEach, rounds, reciter });
           }}
         />
       )}
@@ -666,51 +615,60 @@ function JumpSheet({ edition, onClose, onGo }: { edition: EditionId; onClose: ()
 
 function ListenSheet({
   page,
+  all,
   hl,
   onClose,
   onPlay,
 }: {
   page: number;
-  hl: [number, number] | null;
+  /** Ajat der Seite in Lesereihenfolge, -1 = Basmala */
+  all: number[];
+  /** Ajat der hervorgehobenen Zeilen */
+  hl: number[] | null;
   onClose: () => void;
-  onPlay: (from: number | undefined, to: number | undefined, repeatEach: number, rounds: number, reciter: string) => void;
+  onPlay: (ayahs: number[], label: string, repeatEach: number, rounds: number, reciter: string) => void;
 }) {
   const { profile, update } = useStore();
-  const [range, setRange] = useState<'hl' | 'page'>(hl ? 'hl' : 'page');
+  const ayahs = all.filter((a) => a >= 0);
+  const start = hl?.length ? hl : ayahs;
+  const [from, setFrom] = useState(start[0]);
+  const [to, setTo] = useState(start[start.length - 1]);
   const [rounds, setRounds] = useState(1);
-  if (!profile) return null;
+  if (!profile || !ayahs.length) return null;
   const repeatEach = profile.repeatEach ?? 3;
   const reciter = reciterById(profile.reciter);
+  const range = (
+    <AyahRange
+      ayahs={ayahs}
+      from={from}
+      to={to}
+      onChange={(f, t) => {
+        setFrom(f);
+        setTo(t);
+      }}
+    />
+  );
+  // In claude.ai darf die App kein Audio von fremden Servern laden: dort spielt quran.com den Bereich ab
+  if (IS_ARTIFACT)
+    return (
+      <Sheet title="Anhören" onClose={onClose}>
+        <div className="stack">
+          {range}
+          <a className="btn primary block" href={rangeUrl(page, from, to)} target="_blank" rel="noopener noreferrer" onClick={onClose}>
+            <Icon name="play" /> {ayahRangeLabel(from, to)} auf quran.com
+          </a>
+          <p className="small" style={{ margin: 0 }}>
+            In dieser Link-Version kann die App selbst kein Audio abspielen. Den Rezitator wählst du auf quran.com über die
+            Wiedergabe-Leiste; er bleibt dort gespeichert.
+          </p>
+        </div>
+      </Sheet>
+    );
   return (
     <Sheet title="Anhören" onClose={onClose}>
       <div className="stack">
-        {hl && (
-          <div>
-            <label className="lbl">Bereich</label>
-            <Seg<'hl' | 'page'>
-              label="Bereich"
-              value={range}
-              onChange={setRange}
-              options={[
-                { value: 'hl', label: `Zeilen ${hl[0]}–${hl[1]}` },
-                { value: 'page', label: `Ganze Seite ${page}` },
-              ]}
-            />
-          </div>
-        )}
-        <div>
-          <label className="lbl" htmlFor="reciter">
-            Rezitator
-          </label>
-          <select id="reciter" className="field" value={reciter.id} onChange={(e) => update((p) => ({ ...p, reciter: e.target.value }))}>
-            {RECITERS.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-                {r.style !== 'Murattal' ? ` – ${r.style}` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
+        {range}
+        <ReciterSelect value={reciter.id} onChange={(id) => update((p) => ({ ...p, reciter: id }))} />
         <div>
           <label className="lbl">Jede Ajah wiederholen</label>
           <div className="chips-row">
@@ -746,12 +704,13 @@ function ListenSheet({
         <button
           type="button"
           className="btn primary block"
-          onClick={() => onPlay(range === 'hl' && hl ? hl[0] : undefined, range === 'hl' && hl ? hl[1] : undefined, repeatEach, rounds, reciter.id)}
+          onClick={() => onPlay(sliceAyahs(all, from, to), `S. ${page} · ${ayahRangeLabel(from, to)}`, repeatEach, rounds, reciter.id)}
         >
           <Icon name="play" /> Abspielen
         </button>
         <p className="small" style={{ margin: 0 }}>
-          Zum Auswendiglernen hilft es, immer denselben Rezitator zu hören. Audio von EveryAyah.com, nur mit Internet.
+          Zum Auswendiglernen hilft es, immer denselben Rezitator zu hören. Ein Tipp auf die Wiedergabe-Leiste ändert Rezitator
+          und Bereich unterwegs. Audio von EveryAyah.com, nur mit Internet.
         </p>
       </div>
     </Sheet>
@@ -835,15 +794,6 @@ function usePref<T extends string | boolean>(key: string, initial: T): [T, (v: T
   return [v, set];
 }
 
-/** Ajat dieser Seite in Reihenfolge (globaler Index), ab einer Zeile. */
-function pageAyahs(lines: LineData[], fromLine = 1): number[] {
-  const out: number[] = [];
-  lines.forEach((l, i) => {
-    if (l[0] === 't' && i + 1 >= fromLine) for (const [idx] of l[1]) if (!out.includes(idx)) out.push(idx);
-  });
-  return out;
-}
-
 /** Lesen mit Übersetzung: Ajah für Ajah, die deutsche Bedeutung direkt unter dem arabischen Text. */
 function AyahView({
   lines,
@@ -858,13 +808,15 @@ function AyahView({
   lines: LineData[];
   text: TextData;
   transId: TranslationId;
+  /** verdeckte Zeilen der Seite */
   hidden: Set<number>;
   masked: boolean;
   playingAyah: number | null;
   sel: number | null;
-  renderWord: (idx: number, wi: number, w: string, masked: boolean, ayahWords: string[]) => ReactNode;
+  renderWord: (idx: number, wi: number, w: string, masked: boolean, ayahWords: string[], full?: boolean) => ReactNode;
 }) {
   const tr = useTranslation(transId);
+  const lineOf = useMemo(() => wordLines(lines), [lines]);
   const seen = new Set<number>();
   const blocks: ReactNode[] = [];
   lines.forEach((l, i) => {
@@ -887,19 +839,21 @@ function AyahView({
         seen.add(idx);
         const [s, a] = ayahKey(idx);
         const words = text.ayahs[idx];
-        const isHidden = hidden.has(idx);
-        const covered = isHidden && !masked;
+        const wl = lineOf.get(idx) ?? [];
+        const hiddenWord = (wi: number) => hidden.has(wl[wi]);
+        const allHidden = words.every((_, wi) => hiddenWord(wi));
+        const anyHidden = words.some((_, wi) => hiddenWord(wi));
+        const covered = allHidden && !masked;
+        const word = (w: string, wi: number) => renderWord(idx, wi, w, hiddenWord(wi) && masked, words, hiddenWord(wi) && !masked && !covered);
         blocks.push(
           <div key={idx} className={`ayah-item${playingAyah === idx ? ' playing' : ''}${sel === idx ? ' sel' : ''}`} data-a={idx}>
             <div className={`ayah-ar${covered ? ' covered' : ''}`}>
-              {words.slice(0, -2).map((w, wi) => renderWord(idx, wi, w, isHidden && masked, words))}
+              {words.slice(0, -2).map((w, wi) => word(w, wi))}
               {/* letztes Wort und Ajah-Nummer bleiben zusammen in einer Zeile */}
-              <span className="ayah-end">
-                {words.slice(-2).map((w, k) => renderWord(idx, words.length - 2 + k, w, isHidden && masked, words))}
-              </span>
+              <span className="ayah-end">{words.slice(-2).map((w, k) => word(w, words.length - 2 + k))}</span>
               {covered && <div className="cover" aria-hidden="true" />}
             </div>
-            <p className="tr-ayah">
+            <p className={`tr-ayah${anyHidden ? ' tr-hidden' : ''}`}>
               <span className="tr-ref">
                 {s}:{a}
               </span>{' '}

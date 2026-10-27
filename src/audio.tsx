@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ayahKey, cachedLayout, loadLayout, type LayoutData } from './data/quranData';
-import type { EditionId } from './logic/quran';
+import { suraName, type EditionId } from './logic/quran';
 import { quranComPageUrl, quranComUrl } from './platform';
 import { useStore } from './store';
 
@@ -69,6 +69,30 @@ export function listenUrl(ed: EditionId, page: number, from?: number, to?: numbe
   return quranComPageUrl(page);
 }
 
+/** Ajat von–bis aus der Seitenliste; eine Basmala direkt davor wird mitgenommen. */
+export function sliceAyahs(all: number[], from: number, to: number): number[] {
+  let i = all.indexOf(Math.min(from, to));
+  const j = all.indexOf(Math.max(from, to));
+  if (i < 0 || j < 0) return [];
+  if (i > 0 && all[i - 1] === -1) i--;
+  return all.slice(i, j + 1);
+}
+
+/** „Al-‘Ankabūt 8–14“ oder „Al-Qaṣaṣ 85 – Al-‘Ankabūt 6“ */
+export function ayahRangeLabel(from: number, to: number): string {
+  const [s1, a1] = ayahKey(Math.min(from, to));
+  const [s2, a2] = ayahKey(Math.max(from, to));
+  if (s1 !== s2) return `${suraName(s1)} ${a1} – ${suraName(s2)} ${a2}`;
+  return a1 === a2 ? `${suraName(s1)} ${a1}` : `${suraName(s1)} ${a1}–${a2}`;
+}
+
+/** quran.com für einen Ajah-Bereich; über eine Sura-Grenze hinweg die ganze Seite. */
+export function rangeUrl(page: number, from: number, to: number): string {
+  const [s1, a1] = ayahKey(Math.min(from, to));
+  const [s2, a2] = ayahKey(Math.max(from, to));
+  return s1 === s2 ? quranComUrl(s1, a1, a2) : quranComPageUrl(page);
+}
+
 export interface PlayRequest {
   edition: EditionId;
   page: number;
@@ -104,6 +128,19 @@ export interface AudioState {
   echo: boolean;
   /** gerade in der Nachsprech-Pause */
   echoing: boolean;
+  /** gespielte Ajat und alle Ajat der Seite (für Von/Bis), globale Indizes, -1 = Basmala */
+  list: number[];
+  all: number[];
+  reciter: string;
+}
+
+/** Neustart der laufenden Wiedergabe mit geänderten Einstellungen */
+export interface RestartRequest {
+  list?: number[];
+  reciter?: string;
+  repeatEach?: number;
+  echo?: boolean;
+  label?: string;
 }
 
 interface AudioCtx {
@@ -111,6 +148,7 @@ interface AudioCtx {
   play: (req: PlayRequest) => Promise<void>;
   toggle: () => void;
   stop: () => void;
+  restart: (req: RestartRequest) => void;
 }
 
 const Ctx = createContext<AudioCtx | null>(null);
@@ -193,9 +231,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       stop();
       // Das Layout ist normalerweise schon geladen; dann startet die Wiedergabe noch
       // innerhalb der Tipp-Geste (wichtig für iOS).
-      const list =
-        req.ayahs ?? ayahsForLines(cachedLayout(req.edition) ?? (await loadLayout(req.edition)), req.page, req.from, req.to);
+      const layout = cachedLayout(req.edition) ?? (req.ayahs ? null : await loadLayout(req.edition));
+      const list = req.ayahs ?? ayahsForLines(layout!, req.page, req.from, req.to);
       if (!list.length) return;
+      const all = layout ? ayahsForLines(layout, req.page) : list;
       const reciter = req.reciter ?? profile?.reciter ?? DEFAULT_RECITER;
       const repeatEach = req.loop ? 1 : (req.repeatEach ?? profile?.repeatEach ?? 3);
       const label = req.label ?? (req.from ? `S. ${req.page}, Zeilen ${req.from}–${req.to}` : `S. ${req.page}`);
@@ -216,6 +255,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
           loop: !!req.loop,
           echo: req.echo ?? profile?.echoPause ?? false,
           echoing: false,
+          list,
+          all,
+          reciter,
         },
       };
       playCurrent();
@@ -240,6 +282,32 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setState(j.s);
   }, [playCurrent]);
 
-  const value = useMemo(() => ({ state, play, toggle, stop }), [state, play, toggle, stop]);
+  const restart = useCallback(
+    (req: RestartRequest) => {
+      const j = job.current;
+      if (!j) return;
+      window.clearTimeout(timer.current);
+      const list = req.list ?? j.list;
+      const reciter = req.reciter ?? j.reciter;
+      j.list = list;
+      j.reciter = reciter;
+      j.s = {
+        ...j.s,
+        list,
+        reciter,
+        total: list.length,
+        index: 0,
+        rep: 1,
+        round: 1,
+        label: req.label ?? j.s.label,
+        repeatEach: j.s.loop ? 1 : (req.repeatEach ?? j.s.repeatEach),
+        echo: req.echo ?? j.s.echo,
+      };
+      playCurrent();
+    },
+    [playCurrent],
+  );
+
+  const value = useMemo(() => ({ state, play, toggle, stop, restart }), [state, play, toggle, stop, restart]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

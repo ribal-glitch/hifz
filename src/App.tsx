@@ -10,6 +10,7 @@ import { ayahKey } from './data/quranData';
 import { suraName } from './logic/quran';
 import { useStore } from './store';
 import { Avatar, Icon } from './ui';
+import { PlayerSheet } from './components/Listen';
 
 /** Vier Seiten zum Wischen: Lesen · Lernen · Wiederholen · Fortschritt. */
 const SLIDES = [
@@ -26,6 +27,7 @@ export function App() {
   const startSlide = profile?.dars.enabled ? 1 : 2;
   const [active, setActive] = useState(startSlide);
   const [settings, setSettings] = useState(false);
+  const [playerSheet, setPlayerSheet] = useState(false);
   const [target, setTarget] = useState<ReadTarget | null>(null);
   /** Eine Mushaf-Seite ist geöffnet: am Handy Vollbild nur mit dem Text */
   const [reading, setReading] = useState(false);
@@ -112,7 +114,7 @@ export function App() {
 
           {audio.state && (
             <div className="player" role="region" aria-label="Wiedergabe">
-              <div className="info">
+              <button type="button" className="info" aria-label="Wiedergabe einstellen" onClick={() => setPlayerSheet(true)}>
                 <b>
                   {audio.state.ayah === -1 || audio.state.ayah === null
                     ? 'Basmala'
@@ -126,9 +128,9 @@ export function App() {
                 </b>
                 <div>
                   {audio.state.label}
-                  {audio.state.rounds > 1 ? ` · Durchgang ${audio.state.round}/${audio.state.rounds}` : ''} · {reciterById(profile.reciter).name}
+                  {audio.state.rounds > 1 ? ` · Durchgang ${audio.state.round}/${audio.state.rounds}` : ''} · {reciterById(audio.state.reciter).name}
                 </div>
-              </div>
+              </button>
               <button type="button" className="iconbtn" aria-label={audio.state.paused ? 'Weiter abspielen' : 'Pause'} onClick={audio.toggle}>
                 <Icon name={audio.state.paused ? 'play' : 'pause'} />
               </button>
@@ -137,6 +139,8 @@ export function App() {
               </button>
             </div>
           )}
+
+          {audio.state && playerSheet && <PlayerSheet onClose={() => setPlayerSheet(false)} />}
 
           <nav className="tabbar" aria-label="Bereiche">
             {SLIDES.map((s, i) => (

@@ -8,6 +8,7 @@ import {
   ensureDay,
   freshPages,
   nextMurajaPreview,
+  rateFresh,
   ratePage,
   logFreeReview,
   removeFreeReview,
@@ -21,8 +22,8 @@ import {
   toggleFresh,
 } from './plan';
 import { createProfile, ribalPreset, type Profile, type Rating } from './profile';
-import { addQuestion, newQuestion, rateQuestion } from './quiz';
-import { meta, pageRangeLabel, range, textLines } from './quran';
+import { addQuestion, juzQuestions, newQuestion, rateQuestion } from './quiz';
+import { juzPages, meta, pageRangeLabel, range, textLines } from './quran';
 import {
   calendar,
   hafizEstimate,
@@ -383,6 +384,36 @@ describe('Mini-Prüfung', () => {
     p = addQuestion(p, START, { kind: 'start', page: 512, line: 8, ok: null });
     p = rateQuestion(p, START, 0, false);
     expect(p.pages[512]).toEqual({ r: 'wackelt', d: START });
+  });
+});
+
+describe('Juz-Quiz', () => {
+  it('zieht 10 Stellen aus verschiedenen Seiten des Juz, jeweils mit einer Textzeile davor', () => {
+    const p = ribalPreset(START);
+    const [a, b] = juzPages('1405', 21);
+    const qs = juzQuestions(p, 21, 10, seeded(11));
+    expect(qs).toHaveLength(10);
+    expect(new Set(qs.map((q) => q.page)).size).toBe(10);
+    for (const q of qs) {
+      expect(q.page).toBeGreaterThanOrEqual(a);
+      expect(q.page).toBeLessThanOrEqual(b);
+      const lines = textLines('1405', q.page);
+      expect(lines).toContain(q.line);
+      expect(lines).toContain(q.line! - 1);
+      expect(q.ok).toBeNull();
+    }
+  });
+});
+
+describe('Frische Seiten bewerten', () => {
+  it('„wacklig“ hakt die Seite ab, merkt die Bewertung und zählt sie nur einmal', () => {
+    let p = ensureDay(ribalPreset(START), START);
+    const [f] = freshPages(p, START);
+    p = rateFresh(p, START, f, 'wackelt');
+    expect(p.days[START].freshDone).toContain(f);
+    expect(p.days[START].ratings[f]).toBe('wackelt');
+    expect(p.pages[f]).toMatchObject({ r: 'wackelt', d: START });
+    expect(reviewedCount(p, START).plan).toBe(1);
   });
 });
 

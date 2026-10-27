@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { listenUrl, reciterById, useAudio } from '../audio';
 import { useLayoutReady } from '../data/quranData';
 import { IS_ARTIFACT } from '../platform';
@@ -10,6 +10,7 @@ import {
   effectiveBestand,
   freshPages,
   portionLines,
+  rateFresh,
   ratePage,
   rotationInfo,
   setDarsDone,
@@ -21,8 +22,10 @@ import {
   type DarsTask,
 } from '../logic/plan';
 import type { Rating } from '../logic/profile';
-import { PAGE_COUNT, formatRanges, pageLineCount, pageRangeLabel, range, textLines } from '../logic/quran';
-import { addQuestion, newQuestion, rateQuestion } from '../logic/quiz';
+import { JUZ_COUNT, PAGE_COUNT, formatRanges, juzPages, pageJuz, pageLineCount, pageRangeLabel, range, textLines } from '../logic/quran';
+import { addQuestion, juzQuestions, newQuestion, rateQuestion } from '../logic/quiz';
+import type { QuizItem } from '../logic/profile';
+import { CoveredPage } from '../components/CoveredPage';
 import { streak } from '../logic/stats';
 import { useStore } from '../store';
 import { Check, Icon } from '../ui';
@@ -44,6 +47,78 @@ const RATINGS: { r: Rating; label: string }[] = [
   { r: 'fehler', label: 'Fehler' },
 ];
 
+/** Nach dem Abfragen einer Seite in „Wiederholen“ */
+const REVIEW_RATINGS: { r: Rating; label: string }[] = [
+  { r: 'sitzt', label: 'sitzt' },
+  { r: 'wackelt', label: 'wacklig' },
+];
+const RATING_TAG: Record<Rating, { cls: string; label: string }> = {
+  sitzt: { cls: 'accent', label: 'sitzt' },
+  wackelt: { cls: 'warn', label: 'wacklig' },
+  fehler: { cls: 'err', label: 'Fehler' },
+};
+
+/**
+ * Eine Seite in der Wiederholungsliste. Ein Tipp öffnet sie verdeckt direkt darunter;
+ * nach dem Aufsagen wird sie mit „sitzt“ oder „wacklig“ bewertet.
+ */
+function ReviewPage({
+  page,
+  open,
+  onToggle,
+  rating,
+  done,
+  info,
+  onRate,
+}: {
+  page: number;
+  open: boolean;
+  onToggle: () => void;
+  rating?: Rating;
+  /** abgehakt ohne Bewertung */
+  done?: boolean;
+  info?: ReactNode;
+  onRate: (r: Rating) => void;
+}) {
+  const { profile } = useStore();
+  const row = useRef<HTMLDivElement>(null);
+  if (!profile) return null;
+  const rate = (r: Rating) => {
+    onRate(r);
+    // die zugeklappte Seite bleibt im Blick, statt dass die Liste nach oben springt
+    requestAnimationFrame(() => row.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+  };
+  return (
+    <div ref={row} className={`listrow review-page${open ? ' open' : ''}`}>
+      <button type="button" className="review-head" aria-expanded={open} onClick={onToggle}>
+        <span className="pageno">S. {page}</span>
+        <span className="sub" style={{ flex: 1, minWidth: 0 }}>
+          {pageRangeLabel(profile.edition, page)}
+        </span>
+        {rating ? (
+          <span className={`tag ${RATING_TAG[rating].cls}`}>{RATING_TAG[rating].label}</span>
+        ) : done ? (
+          <span className="tag accent">✓</span>
+        ) : null}
+        <span className={`chev${open ? ' open' : ''}`} aria-hidden="true" />
+      </button>
+      {info}
+      {open && (
+        <div className="review-body">
+          <CoveredPage edition={profile.edition} page={page} />
+          <div className="rate" role="group" aria-label={`Seite ${page} bewerten`} style={{ gridTemplateColumns: '1fr 1fr' }}>
+            {REVIEW_RATINGS.map(({ r, label }) => (
+              <button key={r} type="button" className={r} aria-pressed={rating === r} onClick={() => rate(r)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Step({
   n,
   done,
@@ -52,6 +127,7 @@ function Step({
   sub,
   onToggle,
   toggleLabel,
+  collapsible,
   children,
 }: {
   n: number;
@@ -61,10 +137,13 @@ function Step({
   sub?: ReactNode;
   onToggle?: () => void;
   toggleLabel: string;
+  /** zugeklappt, bis man auf die Überschrift tippt */
+  collapsible?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const collapsed = done && !open;
+  const canToggle = collapsible || done;
+  const collapsed = canToggle && !open;
   const node = (
     <>
       {done ? (
@@ -91,11 +170,14 @@ function Step({
         <button
           type="button"
           style={{ background: 'none', border: 0, padding: 0, textAlign: 'left', width: '100%' }}
-          onClick={() => done && setOpen(!open)}
-          aria-expanded={done ? !collapsed : undefined}
+          onClick={() => canToggle && setOpen(!open)}
+          aria-expanded={canToggle ? !collapsed : undefined}
         >
           <div className="step-kicker">{kicker}</div>
-          <div className="step-title">{title}</div>
+          <div className="step-title">
+            {title}
+            {collapsible && <span className={`chev${collapsed ? '' : ' open'}`} aria-hidden="true" />}
+          </div>
           {sub && <div className="sub">{sub}</div>}
         </button>
       </div>
@@ -245,6 +327,8 @@ function DarsMethod({ task, onOpen }: { task: DarsTask; onOpen: (t: ReadTarget) 
 /** Zwei Seiten: „Lernen“ (neue Dars-Portion, Notiz) und „Wiederholen“ (frische Seiten, Murājaʿa, Prüfung). */
 export function Today({ onOpen, part }: { onOpen: (t: ReadTarget) => void; part: 'learn' | 'review' }) {
   const { profile, today, update } = useStore();
+  /** in „Wiederholen“ aufgeklappte Seite, z. B. „f-396“ oder „m-310“ */
+  const [openPage, setOpenPage] = useState<string | null>(null);
   if (!profile) return null;
   const ed = profile.edition;
   const day = profile.days[today];
@@ -259,6 +343,7 @@ export function Today({ onOpen, part }: { onOpen: (t: ReadTarget) => void; part:
   const hasBestand = effectiveBestand(profile, today).size > 0;
   const rot = rotationInfo(profile, today);
   let stepNo = 0;
+  const toggleOpen = (k: string) => setOpenPage((cur) => (cur === k ? null : k));
 
   return (
     <div>
@@ -367,9 +452,10 @@ export function Today({ onOpen, part }: { onOpen: (t: ReadTarget) => void; part:
           <Step
             n={++stepNo}
             done={status.fresh === true}
-            kicker="Frisches festigen · letzte Dars-Seiten"
-            title={fresh.length === 1 ? `S. ${fresh[0]} aufsagen` : `S. ${formatRanges(fresh)} aufsagen`}
-            sub={fresh.length > 1 ? 'am Stück, mit den Übergängen' : undefined}
+            kicker="Letzte Dars-Seiten"
+            title="Frisches festigen"
+            sub={`S. ${formatRanges(fresh)} · ${fresh.filter((f) => day?.freshDone.includes(f)).length} von ${fresh.length} aufgesagt`}
+            collapsible
             onToggle={() =>
               update((p) => {
                 const allDone = fresh.every((f) => p.days[today]?.freshDone.includes(f));
@@ -382,18 +468,21 @@ export function Today({ onOpen, part }: { onOpen: (t: ReadTarget) => void; part:
           >
             <div className="panel">
               {fresh.map((f) => (
-                <div key={f} className="listrow row">
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <PageLink page={f} onOpen={() => onOpen({ page: f, startLine: 1 })}>
-                      <span className="pageno">S. {f}</span>
-                    </PageLink>
-                    <div className="sub">{pageRangeLabel(ed, f)}</div>
-                  </div>
-                  <Check small on={!!day?.freshDone.includes(f)} onToggle={() => update((p) => toggleFresh(p, today, f))} label={`Seite ${f} aufgesagt`} />
-                </div>
+                <ReviewPage
+                  key={f}
+                  page={f}
+                  open={openPage === `f-${f}`}
+                  onToggle={() => toggleOpen(`f-${f}`)}
+                  rating={day?.freshDone.includes(f) ? day.ratings[f] : undefined}
+                  done={!!day?.freshDone.includes(f)}
+                  onRate={(r) => {
+                    update((p) => rateFresh(p, today, f, r));
+                    setOpenPage(null);
+                  }}
+                />
               ))}
             </div>
-            <p className="hint">Aus dem Gedächtnis aufsagen, ohne vorher hineinzuschauen. Ein Tipp auf die Seite öffnet sie verdeckt zum Prüfen.</p>
+            <p className="hint">Am Stück aus dem Gedächtnis aufsagen. Ein Tipp auf die Seite öffnet sie verdeckt, jeder weitere Tipp deckt eine Zeile auf.</p>
           </Step>
         )}
 
@@ -401,9 +490,10 @@ export function Today({ onOpen, part }: { onOpen: (t: ReadTarget) => void; part:
           <Step
             n={++stepNo}
             done={status.muraja === true}
-            kicker="Altes wiederholen · Murājaʿa"
-            title={`S. ${formatRanges(muraja.pages)}`}
-            sub={`Durchgang: Seite ${rot.position} von ${rot.size} · alle ${rot.cycleDays} Tage einmal durch`}
+            kicker="Murājaʿa"
+            title="Altes wiederholen"
+            sub={`S. ${formatRanges(muraja.pages)} · Seite ${rot.position} von ${rot.size}, alle ${rot.cycleDays} Tage einmal durch`}
+            collapsible
             toggleLabel="Murājaʿa"
           >
             <div className="panel">
@@ -411,48 +501,38 @@ export function Today({ onOpen, part }: { onOpen: (t: ReadTarget) => void; part:
                 const prev = profile.pages[p]?.d === today ? profile.pages[p]?.prev : profile.pages[p];
                 const followUp = extra && prev?.r === 'sitzt';
                 return (
-                  <div key={p} className="listrow">
-                    <div className="row" style={{ alignItems: 'baseline' }}>
-                      <PageLink page={p} onOpen={() => onOpen({ page: p, startLine: 1 })}>
-                        <span className="pageno">S. {p}</span>
-                      </PageLink>
-                      <span className="sub" style={{ flex: 1, minWidth: 0 }}>
-                        {pageRangeLabel(ed, p)}
-                      </span>
-                    </div>
-                    {extra && (
-                      <div className="small" style={{ marginTop: 2 }}>
-                        {followUp ? (
-                          <span className="tag accent">Nachprüfung</span>
-                        ) : (
-                          <span className={`tag ${prev?.r === 'fehler' ? 'err' : 'warn'}`}>Schwachstelle</span>
-                        )}
-                        {prev && (
-                          <span>
-                            {' '}
-                            · zuletzt „{prev.r === 'fehler' ? 'Fehler' : prev.r}“ am {formatDayMonth(prev.d)}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <div className="rate" role="group" aria-label={`Seite ${p} bewerten`}>
-                      {RATINGS.map(({ r, label }) => (
-                        <button
-                          key={r}
-                          type="button"
-                          className={r}
-                          aria-pressed={day.ratings[p] === r}
-                          onClick={() => update((pr) => ratePage(pr, today, p, r))}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <ReviewPage
+                    key={p}
+                    page={p}
+                    open={openPage === `m-${p}`}
+                    onToggle={() => toggleOpen(`m-${p}`)}
+                    rating={day?.ratings[p]}
+                    info={
+                      extra && (
+                        <div className="small" style={{ marginTop: 2 }}>
+                          {followUp ? (
+                            <span className="tag accent">Nachprüfung</span>
+                          ) : (
+                            <span className={`tag ${prev?.r === 'fehler' ? 'err' : 'warn'}`}>Schwachstelle</span>
+                          )}
+                          {prev && (
+                            <span>
+                              {' '}
+                              · zuletzt „{RATING_TAG[prev.r].label}“ am {formatDayMonth(prev.d)}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    }
+                    onRate={(r) => {
+                      update((pr) => ratePage(pr, today, p, r));
+                      setOpenPage(null);
+                    }}
+                  />
                 );
               })}
             </div>
-            <p className="hint">Erst auswendig aufsagen, dann aufdecken und ehrlich bewerten. Was wackelt, kommt morgen wieder.</p>
+            <p className="hint">Erst auswendig aufsagen, dann aufdecken und ehrlich bewerten. Was wacklig ist, kommt morgen wieder.</p>
           </Step>
         )}
       </div>
@@ -483,6 +563,10 @@ export function Today({ onOpen, part }: { onOpen: (t: ReadTarget) => void; part:
             <i />
           </div>
           <Quiz onOpen={onOpen} />
+          <div className="ornament" aria-hidden="true">
+            <i />
+          </div>
+          <JuzQuiz />
         </>
       )}
     </div>
@@ -624,6 +708,133 @@ function FreeReviews({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
                 </button>
               </span>
             ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+const QUIZ_SIZE = 10;
+
+/** Juz-Quiz: zehn zufällige Stellen aus einem Juz, verdeckt weiterlesen und abhaken oder Fehler ankreuzen. */
+function JuzQuiz() {
+  const { profile, today, update } = useStore();
+  const ed = profile?.edition ?? '1405';
+  const bestand = profile ? effectiveBestand(profile, today) : new Set<number>();
+  const learned = (j: number) => {
+    const [a, b] = juzPages(ed, j);
+    return range(a, b).filter((p) => bestand.has(p)).length;
+  };
+  // Voreinstellung: der Juz mit den meisten auswendig gelernten Seiten
+  const [juz, setJuz] = useState(() => {
+    let best = pageJuz(ed, [...bestand][0] ?? 1);
+    for (let j = 1; j <= JUZ_COUNT; j++) if (learned(j) > learned(best)) best = j;
+    return best;
+  });
+  const [qs, setQs] = useState<QuizItem[] | null>(null);
+  const [at, setAt] = useState(0);
+  const box = useRef<HTMLElement>(null);
+  if (!profile) return null;
+
+  const start = () => {
+    setQs(juzQuestions(profile, juz, QUIZ_SIZE));
+    setAt(0);
+  };
+  const answer = (ok: boolean) => {
+    if (!qs) return;
+    const q = qs[at];
+    setQs(qs.map((x, i) => (i === at ? { ...x, ok } : x)));
+    setAt(at + 1);
+    requestAnimationFrame(() => box.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+    // wie die Mini-Prüfung: zählt für die Statistik, ein Fehler macht die Seite zur Schwachstelle
+    update((p) => {
+      const withQ = addQuestion(p, today, { ...q, ok: null });
+      return rateQuestion(withQ, today, withQ.days[today].quiz.length - 1, ok);
+    });
+  };
+  const current = qs && at < qs.length ? qs[at] : null;
+  const right = qs?.filter((q) => q.ok).length ?? 0;
+  const [pa, pb] = juzPages(ed, juz);
+
+  return (
+    <section className="juz-quiz" ref={box}>
+      <h2 className="section-title">Juz-Quiz</h2>
+      <p className="small" style={{ margin: '-4px 0 10px' }}>
+        {QUIZ_SIZE} zufällige Stellen aus einem Juz. Die Zeile davor steht als Stichwort da, dann verdeckt weiterlesen.
+      </p>
+
+      {!qs && (
+        <div className="stack">
+          <div>
+            <label className="lbl" htmlFor="quiz-juz">
+              Juz
+            </label>
+            <select id="quiz-juz" className="field" value={juz} onChange={(e) => setJuz(Number(e.target.value))}>
+              {Array.from({ length: JUZ_COUNT }, (_, i) => i + 1).map((j) => {
+                const n = learned(j);
+                const [a, b] = juzPages(ed, j);
+                return (
+                  <option key={j} value={j}>
+                    Juz {j} · S. {a}–{b}
+                    {n === b - a + 1 ? ' · auswendig' : n > 0 ? ` · ${n} S. auswendig` : ''}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+          <button type="button" className="btn primary block" onClick={start}>
+            Quiz starten · S. {pa}–{pb}
+          </button>
+        </div>
+      )}
+
+      {qs && current && (
+        <div className="panel" style={{ padding: '12px 12px 14px' }}>
+          <div className="row" style={{ alignItems: 'baseline', marginBottom: 8 }}>
+            <b style={{ flex: 1 }}>
+              Frage {at + 1} von {qs.length}
+            </b>
+            <span className="small">
+              S. {current.page} · ab Zeile {current.line}
+            </span>
+          </div>
+          <CoveredPage key={`${current.page}-${current.line}`} edition={ed} page={current.page} from={current.line} cue />
+          <div className="rate" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <button type="button" className="sitzt" onClick={() => answer(true)}>
+              ✓ konnte ich
+            </button>
+            <button type="button" className="fehler" onClick={() => answer(false)}>
+              ✗ Fehler
+            </button>
+          </div>
+          <button type="button" className="btn ghost block" style={{ marginTop: 6 }} onClick={() => setQs(null)}>
+            Quiz abbrechen
+          </button>
+        </div>
+      )}
+
+      {qs && !current && (
+        <div className="panel" style={{ padding: '14px 14px 12px' }}>
+          <div className="serif" style={{ fontSize: 22, lineHeight: 1.35 }}>
+            {right} von {qs.length} gekonnt
+          </div>
+          <div style={{ marginTop: 8 }}>
+            {qs.map((q, i) => (
+              <div key={i} className="listrow row" style={{ fontSize: 15 }}>
+                <span style={{ flex: 1 }}>
+                  S. {q.page}, ab Zeile {q.line}
+                </span>
+                <span className={`tag ${q.ok ? 'accent' : 'err'}`}>{q.ok ? '✓' : 'Fehler'}</span>
+              </div>
+            ))}
+          </div>
+          <p className="small">Seiten mit Fehlern kommen als Schwachstelle in die Murājaʿa.</p>
+          <button type="button" className="btn primary block" onClick={start}>
+            Neues Quiz · Juz {juz}
+          </button>
+          <button type="button" className="btn block" style={{ marginTop: 6 }} onClick={() => setQs(null)}>
+            Anderen Juz wählen
+          </button>
         </div>
       )}
     </section>

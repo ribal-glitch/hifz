@@ -1562,6 +1562,101 @@ label.lbl {
   color: var(--bg);
 }
 
+/* Ein Tipp auf die Leiste öffnet die Wiedergabe-Einstellungen */
+.player button.info {
+  position: relative;
+  padding: 2px 22px 2px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.player button.info:active {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.player button.info::after {
+  content: '›';
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  font-size: 22px;
+  line-height: 1;
+  opacity: 0.75;
+  transform: translateY(-50%) rotate(-90deg);
+}
+
+.range-row {
+  display: flex;
+  gap: 10px;
+}
+
+.range-row > div {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- Wiederholen: Seiten direkt in der Liste abfragen ---------- */
+
+.chev {
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-left: 10px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: translateY(-3px) rotate(45deg);
+  transition: transform 0.15s ease-out;
+  vertical-align: middle;
+}
+
+.chev.open {
+  transform: translateY(1px) rotate(-135deg);
+}
+
+.review-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.review-body {
+  margin-top: 10px;
+}
+
+.mushaf.inline {
+  box-shadow: none;
+  border: 1px solid var(--rule);
+  padding: 8px 10px 10px;
+  will-change: auto;
+  cursor: pointer;
+}
+
+.covered-page .switch-bar.single {
+  margin: 8px 0 0;
+}
+
+.covered-page .switch {
+  min-height: 40px;
+  font-size: 14px;
+}
+
+.tr-hidden {
+  visibility: hidden;
+}
+
 /* ---------- Profile ---------- */
 
 .who {
@@ -2323,7 +2418,40 @@ a.btn.primary {
 }
 
 .reader .switch {
-  min-height: 42px;
+  min-height: 30px;
+  padding: 2px 6px;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+/* Schmale Leiste über dem Mushaf, damit die Ajat mehr Platz bekommen */
+.reader .switch-bar:not(.single) .switch {
+  flex-direction: row;
+}
+
+.reader .switch .track {
+  width: 28px;
+  height: 16px;
+  border-radius: 8px;
+}
+
+.reader .switch .knob {
+  width: 12px;
+  height: 12px;
+  top: 1px;
+  left: 1px;
+}
+
+.reader .switch.on .knob {
+  transform: translateX(12px);
+}
+
+@media (max-width: 400px) {
+  .reader .switch-bar:not(.single) .switch {
+    gap: 5px;
+    padding: 2px 4px;
+    font-size: 11.5px;
+  }
 }
 
 .mline .sura-frame {

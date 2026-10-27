@@ -1,7 +1,7 @@
 import { addDays, type ISODate } from './dates';
 import { effectiveBestand, isWeak, updateDayRecord } from './plan';
 import type { Profile, QuizItem } from './profile';
-import { textLines } from './quran';
+import { juzPages, textLines } from './quran';
 
 /** Kleine Zufallsfunktion, in Tests ersetzbar. */
 export type Rng = () => number;
@@ -66,6 +66,32 @@ export function newQuestion(profile: Profile, date: ISODate, rng: Rng = Math.ran
   const lines = textLines(profile.edition, page);
   const line = lines[Math.floor(rng() * lines.length)];
   return { kind: 'start', page, line, ok: null };
+}
+
+/**
+ * Juz-Quiz: zufällige Stellen aus einem Juz. Jede Frage beginnt mitten auf einer Seite;
+ * die Zeile davor bleibt als Stichwort sichtbar, darum nur Zeilen, vor denen Quran-Text steht.
+ */
+export function juzQuestions(profile: Profile, juz: number, count = 10, rng: Rng = Math.random): QuizItem[] {
+  const [a, b] = juzPages(profile.edition, juz);
+  const spots: { page: number; line: number }[] = [];
+  for (let page = a; page <= b; page++) {
+    const lines = textLines(profile.edition, page);
+    for (const line of lines) if (lines.includes(line - 1)) spots.push({ page, line });
+  }
+  // Ziehen ohne Zurücklegen, höchstens eine Stelle pro Seite, solange es genug Seiten gibt
+  const pool = [...spots];
+  const out: QuizItem[] = [];
+  const usedPages = new Set<number>();
+  const pages = b - a + 1;
+  while (out.length < count && pool.length) {
+    const i = Math.floor(rng() * pool.length);
+    const [s] = pool.splice(i, 1);
+    if (usedPages.has(s.page) && usedPages.size < pages) continue;
+    usedPages.add(s.page);
+    out.push({ kind: 'start', page: s.page, line: s.line, ok: null });
+  }
+  return out.sort((x, y) => x.page - y.page || (x.line ?? 0) - (y.line ?? 0));
 }
 
 /** Seite, die bei einem Prüfungsfehler als Schwachstelle markiert wird. */
