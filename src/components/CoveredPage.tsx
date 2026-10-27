@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useMushafData } from '../data/quranData';
 import { SURAS, type EditionId } from '../logic/quran';
 import { useAudio } from '../audio';
-import { Switch } from '../ui';
+import { Icon } from '../ui';
 import { FONT, GAP_EM, ayahsFromLine, clearWidthCache, fitFontSize, wordLines } from './mushaf';
 
 const FIRST_WORD_KEY = 'hifz:firstWord';
@@ -16,11 +16,11 @@ function readFirstWord(): boolean {
 }
 
 /**
- * Mushaf-Seite zum Abfragen direkt in der Liste: verdeckt, ein Tipp deckt die nächste Ajah auf.
+ * Mushaf-Seite zum Abfragen direkt in der Liste: verdeckt, ein Tipp deckt die nächste Ayah auf.
  * Mit `from` beginnt das Verdecken erst ab dieser Zeile; mit `cue` bleibt nur die Zeile davor
  * als Stichwort stehen und alles darüber ist ebenfalls verdeckt (Prüfung mitten auf der Seite).
  * Mit `read` ist nichts verdeckt: zum Lesen, mit hervorgehobenen Zeilen `hl` und Wiederholungszähler
- * (ohne Zähler bei `listen`). Die gerade abgespielte Ajah ist immer markiert.
+ * (ohne Zähler bei `listen`). Die gerade abgespielte Ayah ist immer markiert.
  */
 export function CoveredPage({
   edition,
@@ -41,7 +41,7 @@ export function CoveredPage({
 }) {
   const data = useMushafData(edition);
   const audio = useAudio();
-  const playing = audio.state?.page === page ? audio.state.ayah : null;
+  const playing = audio.state?.ayah ?? null;
   const [count, setCount] = useState(0);
   const [revealed, setRevealed] = useState(0);
   const [showAll, setShowAll] = useState(false);
@@ -88,7 +88,7 @@ export function CoveredPage({
   const lineOf = wordLines(lines);
   const coverable = ayahsFromLine(lines, from);
   const open = new Set(coverable.slice(0, revealed));
-  /** Wort verdeckt: Ajah noch nicht aufgedeckt (ab der Startzeile) oder bei `cue` alles über dem Stichwort */
+  /** Wort verdeckt: Ayah noch nicht aufgedeckt (ab der Startzeile) oder bei `cue` alles über dem Stichwort */
   const wordHidden = (idx: number, wi: number) => {
     if (plain || showAll) return false;
     const n = lineOf.get(idx)?.[wi] ?? 0;
@@ -140,7 +140,7 @@ export function CoveredPage({
                       text.ayahs[idx].slice(a, b).map((w, k) => {
                         const wi = a + k;
                         const isMarker = wi === text.ayahs[idx].length - 1;
-                        // Hinweis: nur das erste Wort jeder Ajah (und die Ajah-Nummer) bleibt sichtbar
+                        // Hinweis: nur das erste Wort jeder Ayah (und die Ayah-Nummer) bleibt sichtbar
                         const masked = wordHidden(idx, wi) && !covered && !(firstWord && (wi === 0 || isMarker));
                         const cls = ['w', masked ? 'masked' : '', playing === idx ? 'playing' : ''].filter(Boolean).join(' ');
                         return (
@@ -174,16 +174,24 @@ export function CoveredPage({
         </div>
       ) : (
         <>
-          <div className="switch-bar single">
-            <Switch label="Erstes Wort jeder Ajah zeigen" on={firstWord} onChange={setFirstWord} />
-          </div>
           <div className="hifz-bar">
-            <button type="button" className="btn primary" onClick={next} disabled={done}>
-              Nächste Ajah
+            <button
+              type="button"
+              className={`btn${firstWord ? ' on' : ''}`}
+              aria-pressed={firstWord}
+              aria-label="Erstes Wort jeder Ayah zeigen"
+              title="Erstes Wort zeigen"
+              onClick={() => setFirstWord(!firstWord)}
+            >
+              <Icon name="tajweed" />
+            </button>
+            <button type="button" className="btn primary" aria-label="Nächste Ayah" onClick={next} disabled={done}>
+              <Icon name="reveal" />
             </button>
             <button
               type="button"
               className="btn"
+              aria-label={done ? 'Neu verdecken' : 'Alles zeigen'}
               onClick={() => {
                 if (done) {
                   setShowAll(false);
@@ -191,7 +199,7 @@ export function CoveredPage({
                 } else setShowAll(true);
               }}
             >
-              {done ? 'Neu verdecken' : 'Alles zeigen'}
+              <Icon name={done ? 'eye' : 'revealAll'} />
             </button>
           </div>
         </>

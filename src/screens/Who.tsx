@@ -1,17 +1,23 @@
-import { useRef, useState } from 'react';
-import { ribalPreset, type Profile } from '../logic/profile';
-import { markMilestonesSeen } from '../logic/stats';
+import { useEffect, useRef, useState } from 'react';
+import type { Profile } from '../logic/profile';
 import { parseProfileFile, useStore } from '../store';
 import { Avatar, Confirm, Icon } from '../ui';
 import { Onboarding } from './Onboarding';
 
 export function Who() {
-  const { profiles, openProfile, addProfile, importProfile, today, toast, account } = useStore();
+  const { profiles, openProfile, importProfile, toast, account } = useStore();
   const [creating, setCreating] = useState(false);
   const [pendingImport, setPendingImport] = useState<Profile | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  if (creating) return <Onboarding onCancel={() => setCreating(false)} />;
+  // Nur das eigene Profil: direkt öffnen, ohne Auswahl
+  const only = profiles.length === 1 ? profiles[0].id : null;
+  useEffect(() => {
+    if (only) openProfile(only);
+  }, [only, openProfile]);
+
+  if (creating || profiles.length === 0) return <Onboarding onCancel={profiles.length ? () => setCreating(false) : undefined} />;
+  if (only) return null;
 
   const onFile = async (f: File | undefined) => {
     if (!f) return;
@@ -27,11 +33,11 @@ export function Who() {
   return (
     <div className="who">
       <h1>Wer lernt?</h1>
-      <p className="sub" style={{ marginTop: 0, marginBottom: 24 }}>
-        {account
-          ? `Angemeldet als ${account.email}. Jedes Profil hat seinen eigenen Stand.`
-          : 'Jedes Profil hat seinen eigenen Stand. Die Daten bleiben auf diesem Gerät.'}
-      </p>
+      {account && (
+        <p className="sub" style={{ marginTop: 0, marginBottom: 24 }}>
+          {account.email}
+        </p>
+      )}
 
       {profiles.map((p) => (
         <button key={p.id} type="button" className="profile-btn" onClick={() => openProfile(p.id)}>
@@ -44,25 +50,6 @@ export function Who() {
           </span>
         </button>
       ))}
-
-      {profiles.length === 0 && (
-        <button
-          type="button"
-          className="profile-btn"
-          onClick={() => addProfile(markMilestonesSeen(ribalPreset(today), today))}
-        >
-          <Avatar name="Ribal" color="#1F5A44" size={48} />
-          <span style={{ flex: 1 }}>
-            <span className="pname" style={{ display: 'block' }}>
-              Ribal
-            </span>
-            <span className="small">Vorbelegt: 227 Seiten · Dars al-ʿAnkabūt</span>
-          </span>
-          <span style={{ color: 'var(--muted)', transform: 'rotate(-90deg)' }}>
-            <Icon name="chevron" />
-          </span>
-        </button>
-      )}
 
       <button type="button" className="btn block" style={{ marginTop: 8, minHeight: 56 }} onClick={() => setCreating(true)}>
         <Icon name="plus" /> Neues Profil anlegen

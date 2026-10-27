@@ -1,4 +1,4 @@
-import { addDays, daysBetween, weekday, type ISODate } from './dates';
+import { addDays, type ISODate } from './dates';
 import {
   FRESH_COUNT,
   MAX_EXTRA_PER_DAY,
@@ -7,67 +7,111 @@ import {
   type Profile,
   type Rating,
 } from './profile';
-import { PAGE_COUNT, pageLineCount, range } from './quran';
+import { learnedPlanPages, planTask, planUnits, cycleStart, type LearnPlan, type PlanTask } from './learn';
+import { meta, suraEndLine, suraPages, suraStartLine } from './quran';
 
-// ---------- Dars ----------
+// ---------- Lernpläne (Dars) ----------
 
-/** Erster Tag der Dars-Woche (der Tag nach dem Vortrag), in der `date` liegt. */
-export function cycleStart(date: ISODate, lectureWeekday: number): ISODate {
-  const startDow = (lectureWeekday + 1) % 7;
-  const back = (weekday(date) - startDow + 7) % 7;
-  return addDays(date, -back);
-}
+export { cycleDay, cycleStart } from './learn';
 
-/** 0 = erster Tag nach dem Vortrag … 6 = Vortragstag */
-export function cycleDay(date: ISODate, lectureWeekday: number): number {
-  return daysBetween(cycleStart(date, lectureWeekday), date);
-}
-
-/** Aktuelle Dars-Seite: rückt nach jedem Vortragstag eine Seite weiter. */
-export function darsPage(profile: Profile, date: ISODate): number {
-  const { page, since, weekday: wd, startPage } = profile.dars;
-  const weeks = Math.round(daysBetween(cycleStart(since, wd), cycleStart(date, wd)) / 7);
-  return Math.max(startPage, Math.min(PAGE_COUNT, page + weeks));
-}
-
-export type DarsTask =
-  | { kind: 'portion'; page: number; day: number; from: number; to: number }
-  | { kind: 'rehearsal'; page: number; day: number }
-  | { kind: 'lecture'; page: number; day: number };
-
-/** Zeilen der Portion k (0–4) einer Seite mit n Zeilen: 15 Zeilen → 1–3, 4–6, 7–9, 10–12, 13–15. */
-export function portionLines(n: number, k: number): [number, number] {
-  return [Math.floor((k * n) / 5) + 1, Math.floor(((k + 1) * n) / 5)];
-}
-
-export function darsTask(profile: Profile, date: ISODate): DarsTask | null {
-  if (!profile.dars.enabled) return null;
-  const page = darsPage(profile, date);
-  const day = cycleDay(date, profile.dars.weekday);
-  if (day <= 4) {
-    const [from, to] = portionLines(pageLineCount(profile.edition, page), day);
-    return { kind: 'portion', page, day, from, to };
-  }
-  if (day === 5) return { kind: 'rehearsal', page, day };
-  return { kind: 'lecture', page, day };
-}
-
-/** Alle bisher im Dars gelernten Seiten (vor der aktuellen Dars-Seite). */
-export function learnedDarsPages(profile: Profile, date: ISODate): number[] {
+/** Pläne des Profils; ein alter, eingeschalteter Dars wird als Plan bis zum Ende seiner Sura übernommen. */
+export function plansOf(profile: Profile): LearnPlan[] {
+  if (profile.plans) return profile.plans;
   if (!profile.dars.enabled) return [];
-  return range(profile.dars.startPage, darsPage(profile, date) - 1);
+  const { page, since, weekday: wd, startPage } = profile.dars;
+  const ed = profile.edition;
+  const sura = meta(ed).pageLast[page - 1][0];
+  // beginnt die Sura auf der ersten Dars-Seite, dann ab ihrem Kopf
+  const fromLine = suraPages(ed, sura)[0] === startPage ? suraStartLine(ed, sura) : 1;
+  return [
+    {
+      id: 'dars',
+      fromPage: startPage,
+      fromLine,
+      toPage: suraPages(ed, sura)[1],
+      toLine: suraEndLine(ed, sura),
+      perWeek: 1,
+      weekday: wd,
+      start: addDays(cycleStart(since, wd), -7 * (page - startPage)),
+    },
+  ];
 }
 
-/** Die letzten vier im Dars gelernten Seiten: täglich einmal aufsagen. */
+/** Heute dran: je laufendem Plan eine Aufgabe. */
+export function learnTasks(profile: Profile, date: ISODate): PlanTask[] {
+  return plansOf(profile)
+    .map((pl) => planTask(profile.edition, pl, date))
+    .filter((t): t is PlanTask => t !== null);
+}
+
+const doneKey = (planId: string) => `${planId}:done`;
+
+/** Aufgabe eines Plans heute erledigt („Portion sitzt“ oder alle Schritte abgehakt). */
+export function taskDone(profile: Profile, date: ISODate, planId: string): boolean {
+  const d = profile.days[date];
+  if (!d) return false;
+  return (d.steps ?? []).includes(doneKey(planId)) || (planId === 'dars' && d.darsDone);
+}
+
+export function setTaskDone(profile: Profile, date: ISODate, planId: string, done: boolean): Profile {
+  return updateDayRecord(profile, date, (d) => {
+    const steps = (d.steps ?? []).filter((s) => s !== doneKey(planId));
+    return { ...d, steps: done ? [...steps, doneKey(planId)] : steps, darsDone: planId === 'dars' ? done : d.darsDone };
+  });
+}
+
+/** Seiten, die ein Plan schon gelernt hat (bei weggelegten Plänen alle). */
+function planLearned(profile: Profile, pl: LearnPlan, date: ISODate): number[] {
+  return pl.archived ? planUnits(profile.edition, pl).map((u) => u.page) : learnedPlanPages(profile.edition, pl, date);
+}
+
+/** Alle in Lernplänen gelernten Seiten. */
+export function learnedDarsPages(profile: Profile, date: ISODate): number[] {
+  return [...new Set(plansOf(profile).flatMap((pl) => planLearned(profile, pl, date)))].sort((a, b) => a - b);
+}
+
+/** Die zuletzt gelernten Seiten jedes laufenden Plans: täglich einmal aufsagen. */
 export function freshPages(profile: Profile, date: ISODate): number[] {
-  return learnedDarsPages(profile, date).slice(-FRESH_COUNT);
+  const out = plansOf(profile)
+    .filter((pl) => !pl.archived)
+    .flatMap((pl) => learnedPlanPages(profile.edition, pl, date).slice(-FRESH_COUNT));
+  return [...new Set(out)].sort((a, b) => a - b);
 }
 
-/** Bestand einschließlich der im Dars gelernten Seiten. */
+/** Seiten, die heute in einem Plan gelernt werden (nicht zugleich in der Wiederholung). */
+function currentPlanPages(profile: Profile, date: ISODate): number[] {
+  return learnTasks(profile, date).flatMap((t) => t.week.map((s) => s.page));
+}
+
+/** Bestand einschließlich der in Plänen gelernten Seiten. */
 export function effectiveBestand(profile: Profile, date: ISODate): Set<number> {
   const set = new Set(profile.bestand);
   for (const p of learnedDarsPages(profile, date)) set.add(p);
   return set;
+}
+
+/** Plan anlegen oder ändern. */
+export function upsertPlan(profile: Profile, plan: LearnPlan): Profile {
+  const plans = plansOf(profile);
+  const exists = plans.some((p) => p.id === plan.id);
+  return { ...profile, plans: exists ? plans.map((p) => (p.id === plan.id ? plan : p)) : [...plans, plan] };
+}
+
+/** Fertigen Plan weglegen: seine Seiten kommen fest in den Bestand und laufen in der Wiederholung. */
+export function archivePlan(profile: Profile, id: string): Profile {
+  const pl = plansOf(profile).find((p) => p.id === id);
+  if (!pl) return profile;
+  const pages = planUnits(profile.edition, pl).map((u) => u.page);
+  const bestand = [...new Set([...profile.bestand, ...pages])].sort((a, b) => a - b);
+  return { ...profile, bestand, plans: plansOf(profile).map((p) => (p.id === id ? { ...p, archived: true } : p)) };
+}
+
+/** Plan löschen; bis dahin Gelerntes bleibt im Bestand. */
+export function removePlan(profile: Profile, id: string, date: ISODate): Profile {
+  const pl = plansOf(profile).find((p) => p.id === id);
+  if (!pl) return profile;
+  const bestand = [...new Set([...profile.bestand, ...planLearned(profile, pl, date)])].sort((a, b) => a - b);
+  return { ...profile, bestand, plans: plansOf(profile).filter((p) => p.id !== id) };
 }
 
 // ---------- Murājaʿa ----------
@@ -76,7 +120,7 @@ export function effectiveBestand(profile: Profile, date: ISODate): Set<number> {
 export function rotationPool(profile: Profile, date: ISODate): number[] {
   const set = effectiveBestand(profile, date);
   for (const p of freshPages(profile, date)) set.delete(p);
-  if (profile.dars.enabled) set.delete(darsPage(profile, date));
+  for (const p of currentPlanPages(profile, date)) set.delete(p);
   return [...set].sort((a, b) => a - b);
 }
 
@@ -120,8 +164,7 @@ export function dueFollowUps(profile: Profile, date: ISODate): number[] {
 function planMuraja(profile: Profile, date: ISODate): { pages: number[]; extra: number[] } {
   const pool = rotationPool(profile, date);
   const pages = murajaBlock(pool, profile.murajaNext, profile.murajaPerDay);
-  const excluded = new Set([...pages, ...freshPages(profile, date)]);
-  if (profile.dars.enabled) excluded.add(darsPage(profile, date));
+  const excluded = new Set([...pages, ...freshPages(profile, date), ...currentPlanPages(profile, date)]);
   // Zuerst echte Schwachstellen, dann fällige Nachprüfungen – zusammen höchstens 2 pro Tag.
   const extra = [...weakPages(profile, date), ...dueFollowUps(profile, date)]
     .filter((p) => !excluded.has(p) && (profile.pages[p]?.d ?? '') < date)
@@ -180,12 +223,12 @@ export interface CardStatus {
 /** Status der drei Karten; null = Karte entfällt heute. */
 export function cardStatus(profile: Profile, date: ISODate): CardStatus {
   const day = profile.days[date] ?? emptyDay(date);
-  const dars = darsTask(profile, date);
+  const tasks = learnTasks(profile, date);
   const fresh = freshPages(profile, date);
   const m = day.muraja;
   const mPages = m ? [...m.pages, ...m.extra] : [];
   return {
-    dars: dars ? day.darsDone : null,
+    dars: tasks.length ? tasks.every((t) => taskDone(profile, date, t.plan.id)) : null,
     fresh: fresh.length ? fresh.every((p) => day.freshDone.includes(p)) : null,
     muraja: mPages.length ? mPages.every((p) => day.ratings[p]) : null,
   };
@@ -197,6 +240,7 @@ function withStatus(profile: Profile, date: ISODate): Profile {
   const day = profile.days[date];
   const touched =
     day.darsDone ||
+    (day.steps?.length ?? 0) > 0 ||
     day.freshDone.length > 0 ||
     Object.keys(day.ratings).length > 0 ||
     day.quiz.some((q) => q.ok !== null) ||
@@ -212,9 +256,6 @@ export function updateDayRecord(profile: Profile, date: ISODate, fn: (d: DayReco
   return withStatus({ ...p, days: { ...p.days, [date]: fn(p.days[date]) } }, date);
 }
 
-export function setDarsDone(profile: Profile, date: ISODate, done: boolean): Profile {
-  return updateDayRecord(profile, date, (d) => ({ ...d, darsDone: done }));
-}
 
 /** Einzelnen Lernschritt abhaken oder wieder öffnen. */
 export function toggleStep(profile: Profile, date: ISODate, id: string): Profile {
@@ -324,28 +365,4 @@ export function setNote(profile: Profile, date: ISODate, note: string): Profile 
 export function nextMurajaPreview(profile: Profile, date: ISODate): number[] {
   const tomorrow = addDays(date, 1);
   return murajaBlock(rotationPool(profile, tomorrow), profile.murajaNext, profile.murajaPerDay);
-}
-
-// ---------- Einstellungen, die Folgen für den Bestand haben ----------
-
-/** Dars-Seite korrigieren: gilt ab der Woche von `date`. */
-export function setDarsPage(profile: Profile, date: ISODate, page: number): Profile {
-  const startPage = Math.min(profile.dars.startPage, page);
-  return { ...profile, dars: { ...profile.dars, page, since: date, startPage } };
-}
-
-/** Dars-Tag ändern, ohne dass sich die aktuelle Seite verschiebt. */
-export function setDarsWeekday(profile: Profile, date: ISODate, wd: number): Profile {
-  const page = darsPage(profile, date);
-  return { ...profile, dars: { ...profile.dars, weekday: wd, page, since: date } };
-}
-
-/** Dars aus-/einschalten. Beim Ausschalten bleiben die gelernten Dars-Seiten im Bestand. */
-export function setDarsEnabled(profile: Profile, date: ISODate, enabled: boolean, page?: number): Profile {
-  if (!enabled) {
-    const bestand = [...effectiveBestand(profile, date)].sort((a, b) => a - b);
-    return { ...profile, bestand, dars: { ...profile.dars, enabled: false } };
-  }
-  const start = page ?? profile.dars.page;
-  return { ...profile, dars: { ...profile.dars, enabled: true, page: start, since: date, startPage: start } };
 }

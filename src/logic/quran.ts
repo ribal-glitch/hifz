@@ -90,3 +90,29 @@ export function formatRanges(pages: Iterable<number>): string {
 export function formatDecimal(n: number, digits = 1): string {
   return n.toFixed(digits).replace('.', ',');
 }
+
+/**
+ * Zeile, mit der eine Sura auf ihrer ersten Seite beginnt (Sura-Kopf).
+ * Die Lücken ohne Quran-Text (Kopf und Basmala) gehören der Reihe nach zu den Suren, die auf der Seite beginnen.
+ */
+export function suraStartLine(ed: EditionId, sura: number): number {
+  const [page] = suraPages(ed, sura);
+  const starting = SURAS.filter((s) => suraPages(ed, s.n)[0] === page && (s.n === sura || !continuesOnto(ed, s.n, page))).map((s) => s.n);
+  const text = new Set(textLines(ed, page));
+  const gaps: number[] = [];
+  for (let l = 1; l <= pageLineCount(ed, page); l++) if (!text.has(l) && (l === 1 || text.has(l - 1))) gaps.push(l);
+  const k = starting.indexOf(sura);
+  return gaps[k] ?? 1;
+}
+
+/** Sura läuft von einer früheren Seite auf diese weiter (beginnt also nicht hier). */
+function continuesOnto(ed: EditionId, sura: number, page: number): boolean {
+  return suraPages(ed, sura)[0] < page;
+}
+
+/** Letzte Zeile einer Sura auf ihrer letzten Seite. */
+export function suraEndLine(ed: EditionId, sura: number): number {
+  const [, page] = suraPages(ed, sura);
+  if (sura < SURAS.length && suraPages(ed, sura + 1)[0] === page) return suraStartLine(ed, sura + 1) - 1;
+  return pageLineCount(ed, page);
+}

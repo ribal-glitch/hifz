@@ -63,7 +63,7 @@ function clusters(words: string[]): Cluster[] {
   return out;
 }
 
-/** Tajwīd-Klassen für eine Ajah; liefert je Wort die farbigen Teile. */
+/** Tajwīd-Klassen für eine Ayah; liefert je Wort die farbigen Teile. */
 export function tajweedAyah(words: string[]): Piece[][] {
   const cl = clusters(words);
   const letters = cl.filter((c) => isLetter(c.base));

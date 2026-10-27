@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { addDays, daysBetween, formatDayMonth, formatMonthYear, WEEKDAYS_SHORT } from '../logic/dates';
-import { reviewedCount, rotationInfo } from '../logic/plan';
+import { useEffect, useState } from 'react';
+import { Celebration } from '../components/Celebrate';
+import { daysBetween, formatDayMonth, formatMonthYear, WEEKDAYS_SHORT } from '../logic/dates';
 import { SURAS, formatDecimal, juzPages } from '../logic/quran';
 import {
   MILESTONES,
@@ -15,7 +15,6 @@ import {
   pagesForMilestone,
   cycleSuraState,
   progress,
-  streak,
   suraStatus,
   type SuraState,
 } from '../logic/stats';
@@ -30,55 +29,60 @@ const SURA_LABEL: Record<SuraState, string> = {
   offen: 'offen',
 };
 
-export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
+/** Zählt beim Öffnen von 0 bis zum Ziel hoch (Kreis und Prozentzahl füllen sich sichtbar). */
+function useCountUp(target: number, run: boolean): number {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    if (!run) {
+      setV(0);
+      return;
+    }
+    let raf = 0;
+    const t0 = performance.now();
+    const tick = (t: number) => {
+      const k = Math.min(1, (t - t0) / 1100);
+      setV(target * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, run]);
+  return v;
+}
+
+export function ProgressTab({ onOpen, active }: { onOpen: (t: ReadTarget) => void; active: boolean }) {
   const { profile, today, update, toast } = useStore();
   const [openSura, setOpenSura] = useState<number | null>(null);
+  const shownPct = useCountUp(profile ? progress(profile, today).percent : 0, active);
   if (!profile) return null;
   const prog = progress(profile, today);
   const juz = juzStatus(profile, today);
   const suras = suraStatus(profile, today);
   const cons = consolidation(profile, today);
-  const st = streak(profile, today);
   const cal = calendar(profile, today);
-  const rot = rotationInfo(profile, today);
   const fresh = newMilestones(profile, today);
   const next = MILESTONES.find((m) => prog.pages < pagesForMilestone(m.percent));
   const celebrated = fresh.length ? MILESTONES.find((m) => m.percent === Math.max(...fresh)) : null;
-  const doneDays = cal.flat().filter((c) => c.state === 'complete').length;
-  const week = Array.from({ length: 7 }, (_, i) => reviewedCount(profile, addDays(today, -i))).reduce(
-    (acc, c) => ({ plan: acc.plan + c.plan, free: acc.free + c.free }),
-    { plan: 0, free: 0 },
-  );
+
 
   return (
     <div>
+      {/* Meilenstein als Einblendung statt als Karte oben, damit die Seite nicht springt */}
       {celebrated && (
-        <section className="card celebrate">
-          <div className="eyebrow" style={{ color: 'var(--ok)' }}>
-            Meilenstein erreicht
-          </div>
-          <div className="big" style={{ margin: '6px 0' }}>
-            {celebrated.label}
-          </div>
-          <div className="sub">
-            {celebrated.percent === 50
-              ? 'Die Hälfte des Qurans in deinem Herzen. Mā shāʾ Allāh.'
-              : celebrated.percent === 100
-                ? 'Der ganze Quran. Allāhumma bārik.'
-                : `${pagesForMilestone(celebrated.percent)} Seiten geschafft. Mā shāʾ Allāh.`}
-          </div>
-          <button type="button" className="btn ghost" style={{ marginTop: 6 }} onClick={() => update((p) => markMilestonesSeen(p, today))}>
-            Alḥamdulillāh
-          </button>
-        </section>
+        <Celebration
+          emoji="🏆"
+          title={celebrated.label}
+          sub={celebrated.percent === 100 ? 'Der ganze Quran. Allāhumma bārik.' : 'Mā shāʾ Allāh'}
+          onDone={() => update((p) => markMilestonesSeen(p, today))}
+        />
       )}
 
       <section style={{ textAlign: 'center', padding: '8px 0 4px' }}>
         <div style={{ display: 'grid', placeItems: 'center' }}>
-          <Ring value={prog.pages / 604} size={224} stroke={9} label={`${formatDecimal(prog.percent)} Prozent des Qurans auswendig`}>
+          <Ring value={shownPct / 100} size={224} stroke={12} label={`${formatDecimal(prog.percent)} Prozent des Qurans auswendig`}>
             <div>
               <div className="serif" style={{ fontSize: 58, fontWeight: 500, lineHeight: 1 }}>
-                {formatDecimal(prog.percent)}
+                {formatDecimal(shownPct)}
                 <span style={{ fontSize: 28 }}> %</span>
               </div>
               <div className="sub" style={{ marginTop: 6 }}>
@@ -88,7 +92,7 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
           </Ring>
         </div>
         <div className="serif" style={{ marginTop: 14, fontSize: 22 }}>
-          {prog.pages} von 604 Seiten · ca. {formatDecimal(prog.juz)} Juz
+          {prog.pages} von 604 Seiten
         </div>
         {next && (
           <div className="sub" style={{ marginTop: 2 }}>
@@ -103,20 +107,6 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
         <i />
       </div>
 
-      <div className="stats">
-        <div>
-          <div className="n">{st}</div>
-          <div className="l">{st === 1 ? 'Tag' : 'Tage'} in Folge</div>
-        </div>
-        <div>
-          <div className="n">{doneDays}</div>
-          <div className="l">von 28 Tagen</div>
-        </div>
-        <div>
-          <div className="n">{rot.cycleDays}</div>
-          <div className="l">Tage je Durchgang</div>
-        </div>
-      </div>
       <div className="cal" aria-label="Kalender der letzten 4 Wochen">
         {[1, 2, 3, 4, 5, 6, 0].map((d) => (
           <div key={d} className="h">
@@ -145,29 +135,17 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
         </span>
       </div>
 
-      <p className="hint">
-        Letzte 7 Tage: {week.plan + week.free} Seiten wiederholt
-        {week.free > 0 ? `, davon ${week.free} außerhalb des Plans` : ''}.
-      </p>
-
       <h2 className="section-title">Festigung</h2>
-      <div className="row" style={{ gap: 18 }}>
-        <Ring value={cons.total ? cons.sitzt / cons.total : 0} size={104} stroke={7} label={`${cons.sitzt} von ${cons.total} Seiten sitzen`}>
-          <div className="serif" style={{ fontSize: 26 }}>
-            {cons.total ? Math.round((cons.sitzt / cons.total) * 100) : 0} %
-          </div>
-        </Ring>
-        <div style={{ flex: 1 }}>
-          <div className="serif" style={{ fontSize: 21, lineHeight: 1.25 }}>
-            {cons.sitzt} von {cons.total} Seiten sitzen
-          </div>
-          <div className="sub">zuletzt mit „sitzt“ bewertet</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 6 }}>
-            {cons.wackelt > 0 && <span className="tag warn">{cons.wackelt} wackelt</span>}
-            {cons.fehler > 0 && <span className="tag err">{cons.fehler} Fehler</span>}
-            {cons.unrated > 0 && <span className="tag">{cons.unrated} noch nicht bewertet</span>}
-          </div>
-        </div>
+      <div className="cons-bar" role="img" aria-label={`${cons.sitzt} sitzen, ${cons.wackelt} wackeln, ${cons.fehler} Fehler, ${cons.unrated} offen`}>
+        {(['sitzt', 'wackelt', 'fehler', 'unrated'] as const).map((k) =>
+          cons[k] > 0 ? <i key={k} className={k} style={{ flexGrow: cons[k] }} /> : null,
+        )}
+      </div>
+      <div className="legend cons-legend">
+        <span className="sitzt">✓ {cons.sitzt}</span>
+        {cons.wackelt > 0 && <span className="wackelt">〜 {cons.wackelt}</span>}
+        {cons.fehler > 0 && <span className="fehler">✗ {cons.fehler}</span>}
+        {cons.unrated > 0 && <span>○ {cons.unrated}</span>}
       </div>
 
       <h2 className="section-title">30 Juz</h2>
@@ -219,7 +197,7 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
 
       <h2 className="section-title">Suren</h2>
       <p className="hint" style={{ marginTop: 0 }}>
-        Tippe auf den Status, um ihn weiterzuschalten: offen → im Dars → auswendig → offen.
+        Tippen: offen → im Dars → auswendig
       </p>
       <div>
         {suras.map((s) => {
@@ -252,7 +230,7 @@ export function ProgressTab({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
               {open && (
                 <div className="sura-detail">
                   <div>
-                    Seite {s.from === s.to ? s.from : `${s.from}–${s.to}`} · {meta.ayahs} Ajat · {SURA_LABEL[s.state]}
+                    Seite {s.from === s.to ? s.from : `${s.from}–${s.to}`} · {meta.ayahs} Ayat · {SURA_LABEL[s.state]}
                   </div>
                   <div>
                     {s.done} von {s.total} {s.total === 1 ? 'Seite' : 'Seiten'} im Bestand
@@ -287,7 +265,6 @@ function GoalCard() {
     );
   }
   const years = daysBetween(today, est.date) / 365.25;
-  const others = PACE_OPTIONS.filter((p) => p !== pace && p >= 1 && p <= 3).slice(0, 2);
   return (
     <section className="card" style={{ marginTop: 18 }}>
       <div className="eyebrow">Hafiz-Ziel</div>
@@ -295,8 +272,7 @@ function GoalCard() {
         {formatMonthYear(est.date)}
       </div>
       <div className="sub">
-        Noch {est.left} Seiten. Bei {paceLabel(pace)} neuen {pace === 1 ? 'Seite' : 'Seiten'} pro Woche ist der ganze Quran in etwa{' '}
-        {years < 1 ? `${Math.max(1, Math.round(years * 12))} Monaten` : `${years.toFixed(1).replace('.', ',')} Jahren`} auswendig.
+        noch {est.left} Seiten · {years < 1 ? `${Math.max(1, Math.round(years * 12))} Monate` : `${years.toFixed(1).replace('.', ',')} Jahre`}
       </div>
       <label className="lbl" style={{ marginTop: 12 }}>
         Neue Seiten pro Woche
@@ -308,12 +284,6 @@ function GoalCard() {
           </button>
         ))}
       </div>
-      {others.length > 0 && (
-        <p className="small" style={{ margin: '10px 0 0' }}>
-          {others.map((o) => `Mit ${paceLabel(o)} pro Woche: ${formatMonthYear(hafizEstimate(profile, today, o).date)}`).join(' · ')}
-        </p>
-      )}
-      <p className="hint">Mehr neue Seiten heißt auch mehr Murājaʿa jeden Tag. Das Tempo am besten mit deinem Sheikh festlegen.</p>
     </section>
   );
 }

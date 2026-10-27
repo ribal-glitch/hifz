@@ -6,11 +6,11 @@ export interface TextData {
   source: string;
   /** Wörter der Basmala (aus 1:1, ohne Nummer) */
   basmala: string[];
-  /** Wörter jeder Ajah; das letzte Element ist die Ajah-Nummer */
+  /** Wörter jeder Ayah; das letzte Element ist die Ayah-Nummer */
   ayahs: string[][];
 }
 
-/** [Ajah-Index, erstes Wort, Ende (exklusiv)] */
+/** [Ayah-Index, erstes Wort, Ende (exklusiv)] */
 export type LinePart = [number, number, number];
 export type LineData = ['h', number] | ['b'] | ['t', LinePart[]] | ['t', LinePart[], number];
 
@@ -85,7 +85,7 @@ export function useMushafData(ed: EditionId): { text: TextData; layout: LayoutDa
   return state;
 }
 
-/** Globaler Ajah-Index → [Sura, Ajah] */
+/** Globaler Ayah-Index → [Sura, Ayah] */
 export function ayahKey(idx: number): [number, number] {
   let lo = 0;
   let hi = SURA_AYAH_START.length - 1;

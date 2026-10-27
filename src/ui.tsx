@@ -24,7 +24,15 @@ export function Icon({
     | 'translate'
     | 'learn'
     | 'repeat'
-    | 'info';
+    | 'info'
+    | 'check'
+    | 'cross'
+    | 'shaky'
+    | 'reveal'
+    | 'revealAll'
+    | 'edit'
+    | 'close'
+    | 'quiz';
 }) {
   const p = {
     fill: 'none',
@@ -164,6 +172,57 @@ export function Icon({
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="8.5" {...p} />
           <path d="M12 11v5.5M12 7.6v.2" {...p} />
+        </svg>
+      );
+    case 'check':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 12.5 10 17.5 19 7" {...p} strokeWidth={2.4} />
+        </svg>
+      );
+    case 'cross':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" {...p} strokeWidth={2.4} />
+        </svg>
+      );
+    case 'shaky':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3.5 12c2-3.2 3.6-3.2 5.6 0s3.6 3.2 5.6 0 3.6-3.2 5.8 0" {...p} strokeWidth={2.4} />
+        </svg>
+      );
+    case 'reveal':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" {...p} />
+          <circle cx="12" cy="12" r="3" {...p} />
+        </svg>
+      );
+    case 'revealAll':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4" y="3.5" width="16" height="17" rx="2.5" {...p} />
+          <path d="M8 8h8M8 12h8M8 16h5" {...p} />
+        </svg>
+      );
+    case 'edit':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z" {...p} />
+        </svg>
+      );
+    case 'close':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" {...p} />
+        </svg>
+      );
+    case 'quiz':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8.5" {...p} />
+          <path d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2.9-1.2 1.8M12 16.6v.2" {...p} />
         </svg>
       );
     case 'chevron':

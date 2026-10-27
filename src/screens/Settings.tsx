@@ -1,25 +1,17 @@
-import { useRef, useState } from 'react';
-import { BestandEditor } from '../components/BestandEditor';
-import { WEEKDAYS, WEEKDAYS_SHORT } from '../logic/dates';
+import { useState } from 'react';
 import { RECITERS, REPEAT_OPTIONS, reciterById } from '../audio';
 import { IS_ARTIFACT } from '../platform';
 import { DEFAULT_REMINDER, REMINDER_TIMES, reminderFile, reminderIcs } from '../logic/reminder';
 import { ACCOUNTS_ENABLED } from '../account';
-import { darsPage, effectiveBestand, replanIfUntouched, rotationInfo, setDarsEnabled, setDarsPage, setDarsWeekday } from '../logic/plan';
+import { replanIfUntouched, rotationInfo } from '../logic/plan';
 import { AVATAR_COLORS, MURAJA_OPTIONS } from '../logic/profile';
-import { EDITIONS, formatRanges, pageRangeLabel, range } from '../logic/quran';
-import { claudeSummary } from '../logic/summary';
-import { parseProfileFile, profileFile, saveFile, useStore, type Theme } from '../store';
-import { Avatar, Confirm, Icon, Seg, Sheet, Stepper } from '../ui';
-import { WEEK_ORDER } from './Onboarding';
+import { EDITIONS } from '../logic/quran';
+import { saveFile, useStore, type Theme } from '../store';
+import { Avatar, Confirm, Seg, Stepper } from '../ui';
 
 export function Settings() {
-  const { profile, today, update, theme, setTheme, deleteProfile, importProfile, toast, closeProfile, account, logout } = useStore();
-  const [editBestand, setEditBestand] = useState(false);
+  const { profile, today, update, theme, setTheme, deleteProfile, toast, account, logout } = useStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [pendingImport, setPendingImport] = useState<ReturnType<typeof parseProfileFile>>(null);
-  const [summary, setSummary] = useState<string | null>(null);
-  const [showMethod, setShowMethod] = useState(false);
   const [reminder, setReminderState] = useState(() => {
     try {
       return localStorage.getItem('hifz:reminder') || DEFAULT_REMINDER;
@@ -35,49 +27,14 @@ export function Settings() {
       /* egal */
     }
   };
-  const fileRef = useRef<HTMLInputElement>(null);
   if (!profile) return null;
 
-  const bestand = [...effectiveBestand(profile, today)].sort((a, b) => a - b);
-  const dp = darsPage(profile, today);
   const rot = rotationInfo(profile, today);
   // Änderungen an der Murājaʿa wirken sofort, solange heute noch nichts bewertet ist.
   const updatePlan = (fn: Parameters<typeof update>[0]) => update((p) => replanIfUntouched(fn(p), today));
 
-  const copySummary = async () => {
-    const text = claudeSummary(profile, today);
-    try {
-      await navigator.clipboard.writeText(text);
-      toast('Stand kopiert – jetzt bei Claude einfügen.');
-    } catch {
-      setSummary(text);
-    }
-  };
-
-  const exportProfile = async () => {
-    const { name, text } = profileFile(profile);
-    const r = await saveFile(name, text);
-    if (r === 'unavailable') toast('Speichern als Datei ist hier nicht möglich.');
-    else if (r !== 'cancelled') toast('Backup erstellt.');
-  };
-
-  const onImport = async (f: File | undefined) => {
-    if (!f) return;
-    const p = parseProfileFile(await f.text());
-    if (!p) toast('Diese Datei ist kein Hifz-Profil.');
-    else setPendingImport(p);
-  };
-
   return (
     <div>
-      <div className="section-title">Stand teilen</div>
-      <section className="card">
-        <p style={{ marginTop: 0 }}>Ein kurzer Text mit deinem Stand – zum Einfügen in ein Gespräch mit Claude.</p>
-        <button type="button" className="btn primary block" onClick={copySummary}>
-          <Icon name="copy" /> Stand für Claude kopieren
-        </button>
-      </section>
-
       <div className="section-title">Profil</div>
       <section className="card stack">
         <div className="row" style={{ gap: 14 }}>
@@ -104,76 +61,14 @@ export function Settings() {
           ))}
         </div>
         <div>
-          <label className="lbl">Mushaf-Ausgabe (bestimmt die Zeilenumbrüche)</label>
+          <label className="lbl">Mushaf-Ausgabe</label>
           <Seg
             label="Mushaf-Ausgabe"
             value={profile.edition}
             onChange={(v) => update((p) => ({ ...p, edition: v }))}
             options={EDITIONS.map((e) => ({ value: e.id, label: e.id === '1405' ? 'Klassisch 1405 H' : 'Neu 1441 H' }))}
           />
-          <p className="small" style={{ marginBottom: 0 }}>
-            Prüfen: Auf S. 6 endet Ajah 30 (al-Baqara) in der klassischen Ausgabe in Zeile 4, in der neuen in Zeile 3.
-          </p>
         </div>
-      </section>
-
-      <div className="section-title">Bestand</div>
-      <section className="card">
-        <div className="big" style={{ fontSize: 24 }}>
-          {bestand.length} Seiten
-        </div>
-        <div className="sub">{bestand.length ? `S. ${formatRanges(bestand)}` : 'Noch nichts eingetragen'}</div>
-        {profile.dars.enabled && dp > profile.dars.startPage && (
-          <div className="small" style={{ marginTop: 6 }}>
-            Inklusive der im Dars gelernten Seiten {formatRanges(range(profile.dars.startPage, dp - 1))}.
-          </div>
-        )}
-        <button type="button" className="btn block" style={{ marginTop: 12 }} onClick={() => setEditBestand(true)}>
-          Bestand bearbeiten
-        </button>
-      </section>
-
-      <div className="section-title">Dars</div>
-      <section className="card stack">
-        <Seg
-          label="Dars"
-          value={profile.dars.enabled ? 'ja' : 'nein'}
-          onChange={(v) => updatePlan((p) => setDarsEnabled(p, today, v === 'ja', v === 'ja' ? p.dars.page : undefined))}
-          options={[
-            { value: 'ja', label: 'Dars an' },
-            { value: 'nein', label: 'Kein Dars' },
-          ]}
-        />
-        {profile.dars.enabled && (
-          <>
-            <div>
-              <label className="lbl">Vortrag am</label>
-              <div className="chips-row">
-                {WEEK_ORDER.map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    aria-label={WEEKDAYS[d]}
-                    aria-pressed={profile.dars.weekday === d}
-                    onClick={() => update((p) => setDarsWeekday(p, today, d))}
-                  >
-                    {WEEKDAYS_SHORT[d]}
-                  </button>
-                ))}
-              </div>
-              <p className="small" style={{ marginBottom: 0 }}>
-                Die Portionen beginnen am Tag nach dem Vortrag. Nach jedem Vortrag rückt die Seite automatisch weiter.
-              </p>
-            </div>
-            <div>
-              <label className="lbl">Aktuelle Dars-Seite</label>
-              <Stepper value={dp} min={1} max={604} label="Dars-Seite" onChange={(v) => updatePlan((p) => setDarsPage(p, today, v))} />
-              <div className="small" style={{ marginTop: 6 }}>
-                {pageRangeLabel(profile.edition, dp)}
-              </div>
-            </div>
-          </>
-        )}
       </section>
 
       <div className="section-title">Murājaʿa</div>
@@ -197,23 +92,16 @@ export function Settings() {
             label="Nächste Murājaʿa-Seite"
             onChange={(v) => updatePlan((p) => ({ ...p, murajaNext: v }))}
           />
-          <p className="small" style={{ marginBottom: 0 }}>
-            Die Rotation läuft von hier fortlaufend durch deinen Bestand. Schwachstellen kommen zusätzlich dran (höchstens 2 pro Tag).
-          </p>
         </div>
-        <p className="hint">
-          Mit {profile.murajaPerDay} Seiten pro Tag kommt jede deiner {rot.size} Seiten alle {rot.cycleDays} Tage einmal dran. Je kürzer der
-          Durchgang, desto fester bleibt der Bestand – die Menge am besten mit deinem Sheikh absprechen.
+        <p className="small" style={{ margin: 0 }}>
+          Ein Durchgang dauert {rot.cycleDays} Tage.
         </p>
       </section>
 
       <div className="section-title">Anhören</div>
       {IS_ARTIFACT ? (
         <section className="card">
-          <p style={{ margin: 0 }}>
-            In dieser Link-Version öffnet „Hören“ die Rezitation auf quran.com in einem neuen Tab. Dort wählst du den Rezitator (z. B.
-            al-Ḥuṣarī, al-Minshāwī, ʿAbd al-Bāsiṭ) und kannst jede Ajah wiederholen lassen.
-          </p>
+          <p style={{ margin: 0 }}>Hier läuft die Rezitation auf quran.com; den Rezitator wählst du dort.</p>
         </section>
       ) : (
       <section className="card stack">
@@ -236,7 +124,7 @@ export function Settings() {
           </select>
         </div>
         <div>
-          <label className="lbl">Jede Ajah wiederholen</label>
+          <label className="lbl">Jede Ayah wiederholen</label>
           <div className="chips-row">
             {REPEAT_OPTIONS.map((n) => (
               <button key={n} type="button" aria-pressed={(profile.repeatEach ?? 3) === n} onClick={() => update((p) => ({ ...p, repeatEach: n }))}>
@@ -246,7 +134,7 @@ export function Settings() {
           </div>
         </div>
         <div>
-          <label className="lbl">Nachsprech-Pause nach jeder Ajah</label>
+          <label className="lbl">Nachsprech-Pause nach jeder Ayah</label>
           <Seg<string>
             label="Nachsprech-Pause"
             value={profile.echoPause ? 'an' : 'aus'}
@@ -257,19 +145,11 @@ export function Settings() {
             ]}
           />
         </div>
-        <p className="small" style={{ margin: 0 }}>
-          Tipp: Beim Lesen eine Ajah antippen, dann läuft sie in Schleife. Mit Nachsprech-Pause bleibt nach jeder Wiederholung so viel Zeit,
-          wie die Ajah dauert. Für das Auswendiglernen hilft ein ruhiger Murattal-Vortrag und immer derselbe Rezitator. Die Muʿallim-Aufnahme von al-Ḥuṣarī ist
-          zum Nachsprechen gedacht. Audio von EveryAyah.com, nur mit Internet.
-        </p>
       </section>
       )}
 
       <div className="section-title">Abend-Erinnerung</div>
       <section className="card stack">
-        <p style={{ margin: 0 }}>
-          Dein Handy erinnert dich jeden Abend an die Einheit – über den Kalender, also auch wenn die App geschlossen ist.
-        </p>
         <div>
           <label className="lbl" htmlFor="reminder-time">
             Uhrzeit
@@ -298,10 +178,6 @@ export function Settings() {
             In den Kalender eintragen
           </a>
         )}
-        <p className="small" style={{ margin: 0 }}>
-          Danach „Alle hinzufügen“ bzw. „Speichern“ wählen. Uhrzeit ändern oder Erinnerung löschen geht in der Kalender-App beim Termin
-          „Hifz – deine Einheit“.
-        </p>
       </section>
 
       <div className="section-title">Darstellung</div>
@@ -315,30 +191,6 @@ export function Settings() {
             { value: 'light', label: 'Hell' },
             { value: 'dark', label: 'Dunkel' },
           ]}
-        />
-      </section>
-
-      <div className="section-title">Backup</div>
-      <section className="card stack">
-        <p style={{ margin: 0 }}>
-          Deine Daten liegen nur auf diesem Gerät. Sichere regelmäßig ein Backup, z. B. in „Dateien“ oder per Nachricht an dich selbst – und
-          vor einem Handywechsel.
-        </p>
-        <button type="button" className="btn block" onClick={exportProfile}>
-          Backup exportieren (Profil „{profile.name}“)
-        </button>
-        <button type="button" className="btn block" onClick={() => fileRef.current?.click()}>
-          Backup importieren
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={(e) => {
-            void onImport(e.target.files?.[0]);
-            e.target.value = '';
-          }}
         />
       </section>
 
@@ -367,49 +219,10 @@ export function Settings() {
         </>
       )}
 
-      <div className="section-title">Profile</div>
-      <section className="card stack">
-        <button type="button" className="btn block" onClick={closeProfile}>
-          Profil wechseln
-        </button>
+      <section className="card stack" style={{ marginTop: 26 }}>
         <button type="button" className="btn block danger" onClick={() => setConfirmDelete(true)}>
           Profil „{profile.name}“ löschen
         </button>
-      </section>
-
-      <div className="section-title">Die Methode</div>
-      <section className="card">
-        {!showMethod ? (
-          <button type="button" className="btn ghost" style={{ padding: 0 }} onClick={() => setShowMethod(true)}>
-            Wie die tägliche Einheit aufgebaut ist
-          </button>
-        ) : (
-          <div className="prose">
-            <p>
-              Die Einheit folgt dem klassischen Dreiklang der Hifz-Schulen: <b>Neues lernen</b> (Sabaq), <b>Frisches festigen</b> (Sabqī) und{' '}
-              <b>Altes wiederholen</b> (Manzil, Murājaʿa).
-            </p>
-            <p>
-              <b>Neu lernen:</b> Die Dars-Seite wird in fünf Portionen à 3 Zeilen gelernt – erst anhören, dann lesen, bis es flüssig ist, dann
-              auswendig aufsagen und mit den Zeilen davor verbinden. Am Tag vor dem Vortrag wird die ganze Seite geprobt.
-            </p>
-            <p>
-              <b>Frisch festigen:</b> Die letzten vier Dars-Seiten werden täglich aufgesagt, denn neu Gelerntes vergisst man in den ersten Wochen am
-              schnellsten.
-            </p>
-            <p>
-              <b>Altes wiederholen:</b> Die Murājaʿa läuft lückenlos im Kreis durch den ganzen Bestand. Was wackelt, kommt am nächsten Tag wieder,
-              bis es sitzt – und danach noch einmal nach 3 und nach 7 Tagen zur Nachprüfung.
-            </p>
-            <p>
-              <b>Erst abrufen, dann nachsehen:</b> Seiten öffnen sich zum Prüfen verdeckt. Aus dem Gedächtnis aufzusagen und erst danach zu kontrollieren,
-              festigt stärker als bloßes Nachlesen.
-            </p>
-            <p>
-              <b>Übergänge:</b> Die Mini-Prüfung fragt bevorzugt Seitenwechsel und Schwachstellen ab, damit du überall sicher einsteigen kannst.
-            </p>
-          </div>
-        )}
       </section>
 
       <div className="section-title">Quellen</div>
@@ -426,23 +239,10 @@ export function Settings() {
         <p style={{ marginBottom: 0 }}>Schrift der Oberfläche: Plus Jakarta Sans (SIL Open Font License).</p>
       </section>
 
-      {editBestand && (
-        <Sheet title="Bestand bearbeiten" onClose={() => setEditBestand(false)}>
-          <BestandEditor
-            edition={profile.edition}
-            pages={profile.bestand}
-            onChange={(pages) => updatePlan((p) => ({ ...p, bestand: pages }))}
-          />
-          <button type="button" className="btn primary block" style={{ marginTop: 16 }} onClick={() => setEditBestand(false)}>
-            Fertig
-          </button>
-        </Sheet>
-      )}
-
       {confirmDelete && (
         <Confirm
           title="Profil löschen?"
-          text={`Alle Daten von „${profile.name}“ – Bestand, Häkchen, Bewertungen, Serie und Notizen – werden von diesem Gerät gelöscht. Das lässt sich nicht rückgängig machen. Exportiere vorher ein Backup, falls du es noch brauchst.`}
+          text={`Alle Daten von „${profile.name}“ werden gelöscht. Das lässt sich nicht rückgängig machen.`}
           confirmLabel="Endgültig löschen"
           danger
           onConfirm={() => {
@@ -453,32 +253,6 @@ export function Settings() {
         />
       )}
 
-      {pendingImport && (
-        <Confirm
-          title="Backup importieren"
-          text={
-            pendingImport.id === profile.id
-              ? `Den Stand von „${profile.name}“ mit dem Backup ersetzen?`
-              : `Das Backup gehört zu „${pendingImport.name}“. Als eigenes Profil auf diesem Gerät anlegen?`
-          }
-          confirmLabel={pendingImport.id === profile.id ? 'Ersetzen' : 'Profil anlegen'}
-          onConfirm={() => {
-            void importProfile(pendingImport, false);
-            setPendingImport(null);
-            toast('Backup importiert.');
-          }}
-          onCancel={() => setPendingImport(null)}
-        />
-      )}
-
-      {summary && (
-        <Sheet title="Stand für Claude" onClose={() => setSummary(null)}>
-          <p className="small" style={{ marginTop: 0 }}>
-            Automatisches Kopieren ging nicht. Text markieren und kopieren:
-          </p>
-          <pre className="summary">{summary}</pre>
-        </Sheet>
-      )}
     </div>
   );
 }

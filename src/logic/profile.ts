@@ -1,4 +1,5 @@
 import type { ISODate } from './dates';
+import type { LearnPlan } from './learn';
 import type { EditionId } from './quran';
 import { range } from './quran';
 
@@ -81,12 +82,16 @@ export interface Profile {
   milestonesSeen: number[];
   /** EveryAyah-Ordner des gewählten Rezitators */
   reciter?: string;
-  /** Wiederholungen pro Ajah beim Anhören */
+  /** Wiederholungen pro Ayah beim Anhören */
   repeatEach?: number;
-  /** Nachsprech-Pause nach jeder Ajah */
+  /** Nachsprech-Pause nach jeder Ayah */
   echoPause?: boolean;
   /** Tempo für den Ziel-Rechner: neue Seiten pro Woche */
   goalPace?: number;
+  /** Lernpläne (ersetzen `dars`; fehlt das Feld, wird ein eingeschalteter Dars als Plan übernommen) */
+  plans?: LearnPlan[];
+  /** Suren, deren Abschluss schon gefeiert wurde */
+  celebrated?: number[];
   /** Suren, die gerade gelernt werden (in „Fortschritt“ als „im Dars“ markiert) */
   learning?: number[];
   /** Antwort auf „Was möchtest du lernen?“, gilt für einen Tag */

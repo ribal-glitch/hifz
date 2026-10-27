@@ -6,7 +6,7 @@ import { tajweedAyah, type Tj } from './tajweed';
 const text = JSON.parse(readFileSync(new URL('../../public/data/text.json', import.meta.url), 'utf8')) as { ayahs: string[][] };
 const words = (s: number, a: number) => text.ayahs[SURA_AYAH_START[s - 1] + a - 1].slice(0, -1);
 
-/** Farbige Teile einer Ajah als „Buchstaben:Klasse“, ohne ZWJ */
+/** Farbige Teile einer Ayah als „Buchstaben:Klasse“, ohne ZWJ */
 function colored(s: number, a: number): string[] {
   return tajweedAyah(words(s, a))
     .flat()
@@ -33,7 +33,7 @@ describe('Tajwīd', () => {
     expect(has(colored(1, 7), 'madd', 'ا\u0653')).toBe(true);
   });
 
-  it('Hamzat al-Wasl und Lām schamsiyya stumm, außer am Ajah-Anfang', () => {
+  it('Hamzat al-Wasl und Lām schamsiyya stumm, außer am Ayah-Anfang', () => {
     const c = colored(1, 3); // ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ
     expect(c.filter((x) => x.endsWith(':silent'))).toEqual(['ل:silent', 'ٱل:silent']);
   });
@@ -46,7 +46,7 @@ describe('Tajwīd', () => {
     expect(has(colored(2, 31), 'ghunna', 'نۢ')).toBe(true);
   });
 
-  it('Qalqala am Ajah-Ende (أَحَدٌ) und bei Sukūn', () => {
+  it('Qalqala am Ayah-Ende (أَحَدٌ) und bei Sukūn', () => {
     expect(colored(112, 1).at(-1)).toMatch(/^دٌ?:qalqala$/);
     expect(has(colored(112, 3), 'qalqala', 'دۡ')).toBe(true); // لَمۡ يَلِدۡ
   });

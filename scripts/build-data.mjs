@@ -1,6 +1,6 @@
 // Erzeugt die statischen Daten der App aus den Quellen in data-src/.
 //
-//   public/data/text.json          Wörter jeder Ajah (KFGQPC Hafs v18)
+//   public/data/text.json          Wörter jeder Ayah (KFGQPC Hafs v18)
 //   public/data/layout-1405.json   Seiten/Zeilen der klassischen Ausgabe
 //   public/data/layout-1441.json   Seiten/Zeilen der neuen Ausgabe
 //   src/data/meta.generated.ts     Suren, Juz und Seiten-Metadaten für die Logik
@@ -23,14 +23,14 @@ function fail(msg) {
 
 // ---------- KFGQPC-Text ----------
 const kfgqpc = readJson('data-src/kfgqpc/hafsData_v18.json');
-if (kfgqpc.length !== 6236) fail('Erwartet 6236 Ajat, gefunden ' + kfgqpc.length);
+if (kfgqpc.length !== 6236) fail('Erwartet 6236 Ayat, gefunden ' + kfgqpc.length);
 
 const ayahs = []; // { sura, aya, juz, page1441, lineStart, lineEnd, words: string[] (inkl. Nummer am Ende) }
 const ayahIndex = new Map(); // "s:a" -> globaler Index
 const suras = [];
 for (const r of kfgqpc) {
   const m = /^(.*?) ([٠-٩]+)$/.exec(r.aya_text);
-  if (!m) fail(`Ajah ${r.sora}:${r.aya_no} ohne Nummernzeichen`);
+  if (!m) fail(`Ayah ${r.sora}:${r.aya_no} ohne Nummernzeichen`);
   const words = m[1].split(' ').filter(Boolean);
   words.push(m[2]);
   ayahIndex.set(`${r.sora}:${r.aya_no}`, ayahs.length);
@@ -56,7 +56,7 @@ const skeleton = (w) =>
     .replace(/ؤ/g, 'و')
     .replace(/[^آ-ي]/g, '');
 
-// Ordnet jedem KFGQPC-Wort einer Ajah die Zeile aus dem Layout zu.
+// Ordnet jedem KFGQPC-Wort einer Ayah die Zeile aus dem Layout zu.
 function alignWords(kWords, segments, key) {
   const tTokens = [];
   for (const seg of segments) {
@@ -122,31 +122,31 @@ for (const [edition, file] of Object.entries(EDITIONS)) {
       ayaNo += 1;
       const key = `${suraNo}:${ayaNo}`;
       const idx = ayahIndex.get(key);
-      if (idx === undefined) fail(`${file}: Ajah ${key} fehlt in KFGQPC`);
+      if (idx === undefined) fail(`${file}: Ayah ${key} fehlt in KFGQPC`);
       const a = ayahs[idx];
-      // Madina-Mushaf: jede Seite endet mit einem Ajah-Ende, Ajat laufen nie über die Seite.
+      // Madina-Mushaf: jede Seite endet mit einem Ayah-Ende, Ayat laufen nie über die Seite.
       for (let i = 1; i < entry.r.length; i++) {
-        if (entry.r[i].l < entry.r[i - 1].l) fail(`${file}: Ajah ${key} läuft über die Seite`);
+        if (entry.r[i].l < entry.r[i - 1].l) fail(`${file}: Ayah ${key} läuft über die Seite`);
       }
       const wordLines = alignWords(a.words, entry.r, key);
       wordLines.push(entry.r[entry.r.length - 1].l); // Nummernzeichen steht hinter dem letzten Wort
       ayahPage[idx] = entry.p;
       if (edition === '1441') {
         if (entry.p !== a.page1441 || wordLines[0] !== a.lineStart || wordLines.at(-1) !== a.lineEnd) {
-          fail(`${file}: Ajah ${key} weicht von KFGQPC ab`);
+          fail(`${file}: Ayah ${key} weicht von KFGQPC ab`);
         }
       }
       let from = 0;
       for (let i = 1; i <= wordLines.length; i++) {
         if (i === wordLines.length || wordLines[i] !== wordLines[from]) {
           const line = pages[entry.p - 1][wordLines[from] - 1];
-          if (line.kind !== 'text') fail(`${file}: Ajah ${key} auf Zeile vom Typ ${line.kind}`);
+          if (line.kind !== 'text') fail(`${file}: Ayah ${key} auf Zeile vom Typ ${line.kind}`);
           line.parts.push([idx, from, i]);
           from = i;
         }
       }
     }
-    if (ayaNo !== suras[si].ayahs) fail(`${file}: Sura ${suraNo} hat ${ayaNo} statt ${suras[si].ayahs} Ajat`);
+    if (ayaNo !== suras[si].ayahs) fail(`${file}: Sura ${suraNo} hat ${ayaNo} statt ${suras[si].ayahs} Ayat`);
   });
 
   // Kontrolle: jede Textzeile hat Wörter, jeder Kopf und jede Basmala gehört zu einer Sura.
@@ -182,7 +182,7 @@ for (const [edition, file] of Object.entries(EDITIONS)) {
   const juzPages = Array.from({ length: 30 }, () => [999, 0]);
   for (let p = 1; p <= 604; p++) {
     const idxs = ayahs.map((_, i) => i).filter((i) => ayahPage[i] === p);
-    if (!idxs.length) fail(`${file}: Seite ${p} ohne Ajat`);
+    if (!idxs.length) fail(`${file}: Seite ${p} ohne Ayat`);
     const first = ayahs[idxs[0]];
     const last = ayahs[idxs.at(-1)];
     pageFirst.push([first.sura, first.aya]);
@@ -238,7 +238,7 @@ export interface SuraMeta {
 }
 
 export interface EditionMeta {
-  /** [sura, ajah] der ersten Ajah je Seite (Index = Seite - 1) */
+  /** [sura, ajah] der ersten Ayah je Seite (Index = Seite - 1) */
   pageFirst: [number, number][];
   pageLast: [number, number][];
   pageJuz: number[];
@@ -253,7 +253,7 @@ export interface EditionMeta {
 
 export const SURAS: SuraMeta[] = ${JSON.stringify(suras)};
 
-/** Globaler Index der ersten Ajah je Sura */
+/** Globaler Index der ersten Ayah je Sura */
 export const SURA_AYAH_START: number[] = ${JSON.stringify(ayahStart)};
 
 export const EDITION_META: Record<EditionId, EditionMeta> = ${JSON.stringify(metaByEdition)};

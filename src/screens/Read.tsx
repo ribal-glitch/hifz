@@ -14,6 +14,7 @@ import {
   pageRangeLabel,
   suraName,
   suraPages,
+  suraStartLine,
   surasOnPage,
   type EditionId,
 } from '../logic/quran';
@@ -26,11 +27,11 @@ import type { ReadTarget } from './Today';
 
 
 /** Innenabstand der Seite oben und unten zusammen (siehe .mushaf) */
-const PAGE_PAD_V = 26;
+const PAGE_PAD_V = 12;
 
 const lastPageKey = (id: string) => `hifz:lastPage:${id}`;
 
-/** Was im Verdecken-Modus sichtbar bleibt: nichts oder Anfang und Ende jeder Ajah */
+/** Was im Verdecken-Modus sichtbar bleibt: nichts oder Anfang und Ende jeder Ayah */
 type HintMode = 'lines' | 'ayah';
 const HINT_KEY = 'hifz:hint';
 function readHint(): HintMode {
@@ -81,7 +82,7 @@ export function Read({
       /* egal */
     }
   };
-  /** angetippte Ajah (globaler Index) für Schleife und Nachsprechen */
+  /** angetippte Ayah (globaler Index) für Schleife und Nachsprechen */
   const [sel, setSel] = useState<number | null>(null);
   const [legend, setLegend] = useState(false);
   /** Richtung des letzten Umblätterns, für die kleine Animation */
@@ -176,7 +177,7 @@ export function Read({
 
   const lines = data && data !== 'error' ? data.layout.pages[page - 1] : null;
   const text = data && data !== 'error' ? data.text : null;
-  // Gerade gespielte Ajah hervorheben, wenn sie auf dieser Seite steht
+  // Gerade gespielte Ayah hervorheben, wenn sie auf dieser Seite steht
   const playingAyah = audio.state && audio.state.page === page ? audio.state.ayah : null;
   const isPlayingHere = !!audio.state && audio.state.page === page;
 
@@ -227,7 +228,7 @@ export function Read({
   }
 
   // ---------- Hifz-Modus ----------
-  // Ajah für Ajah aufdecken; verdeckt wird ab der Startzeile (eine Ajah, die davor beginnt, nur ab dort)
+  // Ayah für Ayah aufdecken; verdeckt wird ab der Startzeile (eine Ayah, die davor beginnt, nur ab dort)
   const coverFrom = hl?.start ?? 1;
   const lineOf = useMemo(() => (lines ? wordLines(lines) : new Map<number, number[]>()), [lines]);
   const coverable = lines ? ayahsFromLine(lines, coverFrom) : [];
@@ -235,7 +236,7 @@ export function Read({
   const wordHidden = (idx: number, wi: number) => hiddenAyahs.has(idx) && (lineOf.get(idx)?.[wi] ?? 0) >= coverFrom;
   const revealNext = () => setRevealed((r) => Math.min(coverable.length, r + 1));
 
-  /** Ein Wort der Ajah, mit Tajwīd-Farben und ggf. ausgeblendet (Hinweis-Modus oder ganz verdeckt). */
+  /** Ein Wort der Ayah, mit Tajwīd-Farben und ggf. ausgeblendet (Hinweis-Modus oder ganz verdeckt). */
   const renderWord = (idx: number, wi: number, w: string, masked: boolean, ayahWords: string[], full = false) => {
     const isMarker = wi === ayahWords.length - 1;
     const hide = full || (masked && !(wi === 0 || isMarker));
@@ -286,7 +287,7 @@ export function Read({
     else if (d.active && d.dx < -70 && page > 1) setPage(page - 1);
     else if (!d.moved && hifz) revealNext();
     else if (!d.moved) {
-      // Tipp auf eine Ajah wählt sie zum Anhören in Schleife aus (nochmal tippen hebt die Auswahl auf)
+      // Tipp auf eine Ayah wählt sie zum Anhören in Schleife aus (nochmal tippen hebt die Auswahl auf)
       const w = (d.target as HTMLElement | null)?.closest?.('[data-a]') as HTMLElement | null;
       const a = w ? Number(w.dataset.a) : null;
       setSel((cur) => (a === null || a === cur ? null : a));
@@ -316,8 +317,10 @@ export function Read({
       <SuraIndex
         edition={ed}
         lastPage={page}
-        onOpen={(p) => {
+        onOpen={(p, line) => {
           setPage(p);
+          // Sura mitten auf der Seite: ab ihrem Kopf markieren (und beim Verdecken erst dort beginnen)
+          if (line && line > 1) setHl({ start: line });
           openPage();
         }}
         onJump={() => setJump(true)}
@@ -355,7 +358,7 @@ export function Read({
           <div className="sura-title">
             <h2>{title}</h2>
             <div>
-              {single ? `Ajah ${a1 === a2 ? a1 : `${a1}–${a2}`}` : pageRangeLabel(ed, page)} · S. {page} · Juz {juz}
+              {single ? `Ayah ${a1 === a2 ? a1 : `${a1}–${a2}`}` : pageRangeLabel(ed, page)} · S. {page} · Juz {juz}
             </div>
           </div>
           {single && <span className="sura-ar">{SURAS[suras[0] - 1].ar}</span>}
@@ -436,7 +439,7 @@ export function Read({
             lines.map((line, i) => {
               const n = i + 1;
               const isHl = hl?.from !== undefined && hl.to !== undefined && n >= hl.from && n <= hl.to;
-              // Zeile ganz verdeckt, wenn alle ihre Wörter zu verdeckten Ajat gehören
+              // Zeile ganz verdeckt, wenn alle ihre Wörter zu verdeckten Ayat gehören
               const allHidden =
                 line[0] === 't' &&
                 line[1].every(([idx, a, b]) => Array.from({ length: b - a }, (_, k) => a + k).every((wi) => wordHidden(idx, wi)));
@@ -466,7 +469,7 @@ export function Read({
                         {line[1].flatMap(([idx, from, to]) =>
                           text.ayahs[idx].slice(from, to).map((w, k) => {
                             const h = wordHidden(idx, from + k);
-                            // Hinweis-Modus: Anfang und Ende jeder Ajah bleiben sichtbar, sonst ganz verdeckt
+                            // Hinweis-Modus: Anfang und Ende jeder Ayah bleiben sichtbar, sonst ganz verdeckt
                             return renderWord(idx, from + k, w, h && hint === 'ayah', text.ayahs[idx], h && hint !== 'ayah' && !covered);
                           }),
                         )}
@@ -538,15 +541,27 @@ export function Read({
 
       {hifz && (
         <div className="hifz-tools">
-          <div className="switch-bar single">
-            <Switch label="Anfang und Ende jeder Ajah zeigen" on={hint === 'ayah'} onChange={(v) => setHint(v ? 'ayah' : 'lines')} />
-          </div>
           <div className="hifz-bar">
-            <button type="button" className="btn primary" onClick={revealNext} disabled={revealed >= coverable.length}>
-              Nächste Ajah
+            <button
+              type="button"
+              className={`btn${hint === 'ayah' ? ' on' : ''}`}
+              aria-pressed={hint === 'ayah'}
+              aria-label="Anfang und Ende jeder Ayah zeigen"
+              title="Anfang und Ende zeigen"
+              onClick={() => setHint(hint === 'ayah' ? 'lines' : 'ayah')}
+            >
+              <Icon name="tajweed" />
             </button>
-            <button type="button" className="btn" onClick={() => setRevealed(revealed >= coverable.length ? 0 : coverable.length)}>
-              {revealed >= coverable.length ? 'Neu verdecken' : 'Alles zeigen'}
+            <button type="button" className="btn primary" aria-label="Nächste Ayah" onClick={revealNext} disabled={revealed >= coverable.length}>
+              <Icon name="reveal" />
+            </button>
+            <button
+              type="button"
+              className="btn"
+              aria-label={revealed >= coverable.length ? 'Neu verdecken' : 'Alles zeigen'}
+              onClick={() => setRevealed(revealed >= coverable.length ? 0 : coverable.length)}
+            >
+              <Icon name={revealed >= coverable.length ? 'eye' : 'revealAll'} />
             </button>
           </div>
         </div>
@@ -662,9 +677,9 @@ function ListenSheet({
   onPlay,
 }: {
   page: number;
-  /** Ajat der Seite in Lesereihenfolge, -1 = Basmala */
+  /** Ayat der Seite in Lesereihenfolge, -1 = Basmala */
   all: number[];
-  /** Ajat der hervorgehobenen Zeilen */
+  /** Ayat der hervorgehobenen Zeilen */
   hl: number[] | null;
   onClose: () => void;
   onPlay: (ayahs: number[], label: string, repeatEach: number, rounds: number, reciter: string) => void;
@@ -711,7 +726,7 @@ function ListenSheet({
         {range}
         <ReciterSelect value={reciter.id} onChange={(id) => update((p) => ({ ...p, reciter: id }))} />
         <div>
-          <label className="lbl">Jede Ajah wiederholen</label>
+          <label className="lbl">Jede Ayah wiederholen</label>
           <div className="chips-row">
             {REPEAT_OPTIONS.map((n) => (
               <button key={n} type="button" aria-pressed={repeatEach === n} onClick={() => update((p) => ({ ...p, repeatEach: n }))}>
@@ -721,14 +736,14 @@ function ListenSheet({
           </div>
         </div>
         <div>
-          <label className="lbl">Nachsprech-Pause nach jeder Ajah</label>
+          <label className="lbl">Nachsprech-Pause nach jeder Ayah</label>
           <Seg<string>
             label="Nachsprech-Pause"
             value={profile.echoPause ? 'an' : 'aus'}
             onChange={(v) => update((p) => ({ ...p, echoPause: v === 'an' }))}
             options={[
               { value: 'aus', label: 'Aus' },
-              { value: 'an', label: 'An – so lang wie die Ajah' },
+              { value: 'an', label: 'An – so lang wie die Ayah' },
             ]}
           />
         </div>
@@ -758,7 +773,7 @@ function ListenSheet({
   );
 }
 
-/** Leiste für eine angetippte Ajah: in Schleife hören, mit oder ohne Nachsprech-Pause. */
+/** Leiste für eine angetippte Ayah: in Schleife hören, mit oder ohne Nachsprech-Pause. */
 function AyahBar({ ayah, page, onClose }: { ayah: number; page: number; onClose: () => void }) {
   const { profile, update } = useStore();
   const audio = useAudio();
@@ -766,7 +781,7 @@ function AyahBar({ ayah, page, onClose }: { ayah: number; page: number; onClose:
   const [s, a] = ayahKey(ayah);
   const echo = profile.echoPause ?? false;
   return (
-    <div className="ayah-bar" role="region" aria-label="Ausgewählte Ajah">
+    <div className="ayah-bar" role="region" aria-label="Ausgewählte Ayah">
       <div className="info">
         <b>
           {suraName(s)} {a}
@@ -835,7 +850,7 @@ function usePref<T extends string | boolean>(key: string, initial: T): [T, (v: T
   return [v, set];
 }
 
-/** Lesen mit Übersetzung: Ajah für Ajah, die deutsche Bedeutung direkt unter dem arabischen Text. */
+/** Lesen mit Übersetzung: Ayah für Ayah, die deutsche Bedeutung direkt unter dem arabischen Text. */
 function AyahView({
   lines,
   text,
@@ -849,7 +864,7 @@ function AyahView({
   lines: LineData[];
   text: TextData;
   transId: TranslationId;
-  /** ob ein Wort einer Ajah verdeckt ist */
+  /** ob ein Wort einer Ayah verdeckt ist */
   hiddenWord: (idx: number, wi: number) => boolean;
   masked: boolean;
   playingAyah: number | null;
@@ -888,7 +903,7 @@ function AyahView({
           <div key={idx} className={`ayah-item${playingAyah === idx ? ' playing' : ''}${sel === idx ? ' sel' : ''}`} data-a={idx}>
             <div className={`ayah-ar${covered ? ' covered' : ''}`}>
               {words.slice(0, -2).map((w, wi) => word(w, wi))}
-              {/* letztes Wort und Ajah-Nummer bleiben zusammen in einer Zeile */}
+              {/* letztes Wort und Ayah-Nummer bleiben zusammen in einer Zeile */}
               <span className="ayah-end">{words.slice(-2).map((w, k) => word(w, words.length - 2 + k))}</span>
               {covered && <div className="cover" aria-hidden="true" />}
             </div>
@@ -922,7 +937,7 @@ function SuraIndex({
 }: {
   edition: EditionId;
   lastPage: number;
-  onOpen: (page: number) => void;
+  onOpen: (page: number, line?: number) => void;
   onJump: () => void;
   jumpSheet: ReactNode;
 }) {
@@ -971,12 +986,12 @@ function SuraIndex({
             const st = status[s.n - 1];
             const [from] = suraPages(edition, s.n);
             return (
-              <button key={s.n} type="button" className="index-row" onClick={() => onOpen(from)}>
+              <button key={s.n} type="button" className="index-row" onClick={() => onOpen(from, suraStartLine(edition, s.n))}>
                 <span className="num">{s.n}</span>
                 <span className="name">
                   {s.tr}
                   <span className="sub" style={{ display: 'block', fontSize: 13 }}>
-                    S. {from} · {s.ayahs} Ajat{label[st.state] ? ` · ${label[st.state]}` : ''}
+                    S. {from} · {s.ayahs} Ayat{label[st.state] ? ` · ${label[st.state]}` : ''}
                   </span>
                 </span>
                 <span className="leader" aria-hidden="true" />

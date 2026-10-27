@@ -3,6 +3,8 @@ import { ProgressTab } from './screens/Progress';
 import { Read } from './screens/Read';
 import { Settings } from './screens/Settings';
 import { Today, type ReadTarget } from './screens/Today';
+import { Learn } from './screens/Learn';
+import { SuraCelebration } from './components/SuraCelebration';
 import { Who } from './screens/Who';
 import { Login } from './screens/Login';
 import { useAudio, reciterById } from './audio';
@@ -21,11 +23,10 @@ const SLIDES = [
 ] as const;
 
 export function App() {
-  const { ready, profile, closeProfile, toastMsg, needLogin } = useStore();
+  const { ready, profile, toastMsg, needLogin } = useStore();
   const audio = useAudio();
-  // Start: „Lernen“, wer im Dars ist, sonst „Wiederholen“
-  const startSlide = profile?.dars.enabled ? 1 : 2;
-  const [active, setActive] = useState(startSlide);
+  // Start immer mit „Lesen“
+  const [active, setActive] = useState(0);
   const [settings, setSettings] = useState(false);
   const [playerSheet, setPlayerSheet] = useState(false);
   const [target, setTarget] = useState<ReadTarget | null>(null);
@@ -49,9 +50,9 @@ export function App() {
   );
   const targetUsed = useCallback(() => setTarget(null), []);
 
-  // Beim Öffnen eines Profils immer mit „Wiederholen“ beginnen
+  // Beim Öffnen eines Profils immer mit „Lesen“ beginnen
   useLayoutEffect(() => {
-    if (profile) go(profile.dars.enabled ? 1 : 2, false);
+    if (profile) go(0, false);
     setSettings(false);
   }, [profile?.id, go]);
 
@@ -84,7 +85,7 @@ export function App() {
             <button type="button" className="iconbtn" aria-label="Einstellungen" onClick={() => setSettings(true)}>
               <Icon name="settings" />
             </button>
-            <button type="button" className="avatar-btn" onClick={closeProfile} aria-label={`Profil ${profile.name} – wechseln`}>
+            <button type="button" className="avatar-btn" onClick={() => setSettings(true)} aria-label={`Profil ${profile.name}`}>
               <Avatar name={profile.name} color={profile.color} size={38} />
             </button>
           </header>
@@ -97,17 +98,17 @@ export function App() {
             </section>
             <section className="slide" aria-label="Lernen" aria-hidden={active !== 1}>
               <div className="content">
-                <Today onOpen={open} part="learn" />
+                <Learn />
               </div>
             </section>
             <section className="slide" aria-label="Wiederholen" aria-hidden={active !== 2}>
               <div className="content">
-                <Today onOpen={open} part="review" />
+                <Today />
               </div>
             </section>
             <section className="slide" aria-label="Fortschritt" aria-hidden={active !== 3}>
               <div className="content">
-                <ProgressTab onOpen={open} />
+                <ProgressTab onOpen={open} active={active === 3} />
               </div>
             </section>
           </div>
@@ -141,6 +142,7 @@ export function App() {
           )}
 
           {audio.state && playerSheet && <PlayerSheet onClose={() => setPlayerSheet(false)} />}
+          <SuraCelebration />
 
           <nav className="tabbar" aria-label="Bereiche">
             {SLIDES.map((s, i) => (

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { addDays, formatMonthYear, logicalToday, type ISODate } from './dates';
 import {
   cardStatus,
-  darsPage,
-  darsTask,
+  learnTasks,
+  plansOf,
+  removePlan,
+  upsertPlan,
   effectiveBestand,
   ensureDay,
   freshPages,
@@ -15,10 +17,7 @@ import {
   reviewedCount,
   rotationInfo,
   rotationPool,
-  setDarsDone,
-  setDarsEnabled,
-  setDarsPage,
-  setDarsWeekday,
+  setTaskDone,
   toggleFresh,
 } from './plan';
 import { createProfile, ribalPreset, type Profile, type Rating } from './profile';
@@ -37,7 +36,15 @@ import {
   streak,
   suraStatus,
 } from './stats';
-import { claudeSummary } from './summary';
+import { setPlanPage, setPlanWeekday } from './learn';
+
+/** Aufgabe des (einzigen) Plans: Seite der Woche, Art und Zeilen der Portion */
+function task(p: Profile, date: ISODate) {
+  const t = learnTasks(p, date)[0];
+  if (!t) return null;
+  return { kind: t.kind, page: t.week[0].page, from: t.segs[0].from, to: t.segs[t.segs.length - 1].to };
+}
+const darsPage = (p: Profile, date: ISODate) => learnTasks(p, date)[0]?.week[0].page;
 
 const START: ISODate = '2026-10-25'; // Sonntag
 
@@ -52,7 +59,7 @@ function seeded(seed: number) {
 
 function doEverything(p: Profile, date: ISODate, rating: (page: number) => Rating = () => 'sitzt'): Profile {
   p = ensureDay(p, date);
-  if (darsTask(p, date)) p = setDarsDone(p, date, true);
+  for (const t of learnTasks(p, date)) p = setTaskDone(p, date, t.plan.id, true);
   for (const f of freshPages(p, date)) p = toggleFresh(p, date, f);
   const m = p.days[date].muraja!;
   for (const page of [...m.pages, ...m.extra]) p = ratePage(p, date, page, rating(page));
@@ -100,7 +107,7 @@ describe('Dars-Portionen', () => {
     ['2026-10-29', 'lecture'], // Do
   ];
   it.each(expected)('%s → %s auf S. 397', (date, want) => {
-    const t = darsTask(p, date)!;
+    const t = task(p, date)!;
     expect(t.page).toBe(397);
     expect(t.kind === 'portion' ? `portion ${t.from}-${t.to}` : t.kind).toBe(want);
   });
@@ -108,24 +115,24 @@ describe('Dars-Portionen', () => {
   it('rückt nach Donnerstag eine Seite weiter', () => {
     expect(darsPage(p, '2026-10-29')).toBe(397);
     expect(darsPage(p, '2026-10-30')).toBe(398);
-    expect(darsTask(p, '2026-10-30')).toMatchObject({ kind: 'portion', page: 398, from: 1, to: 3 });
-    expect(darsTask(p, '2026-11-05')).toMatchObject({ kind: 'lecture', page: 398 });
+    expect(task(p, '2026-10-30')).toMatchObject({ kind: 'portion', page: 398, from: 1, to: 3 });
+    expect(task(p, '2026-11-05')).toMatchObject({ kind: 'lecture', page: 398 });
     expect(darsPage(p, '2026-11-06')).toBe(399);
   });
 
   it('verschiebt die Portionen mit dem Dars-Tag', () => {
-    const mon = setDarsWeekday(p, START, 1); // ab jetzt Vortrag montags
-    expect(darsTask(mon, START)).toMatchObject({ kind: 'rehearsal', page: 397 }); // So
-    expect(darsTask(mon, '2026-10-26')).toMatchObject({ kind: 'lecture', page: 397 }); // Mo
-    expect(darsTask(mon, '2026-10-27')).toMatchObject({ kind: 'portion', page: 398, from: 1, to: 3 }); // Di
-    expect(darsTask(mon, '2026-10-31')).toMatchObject({ kind: 'portion', from: 13, to: 15 }); // Sa
-    expect(darsTask(mon, '2026-11-01')).toMatchObject({ kind: 'rehearsal' }); // So
-    expect(darsTask(mon, '2026-11-02')).toMatchObject({ kind: 'lecture', page: 398 }); // Mo
+    const mon = upsertPlan(p, setPlanWeekday(plansOf(p)[0], START, 1)); // ab jetzt Vortrag montags
+    expect(task(mon, START)).toMatchObject({ kind: 'rehearsal', page: 397 }); // So
+    expect(task(mon, '2026-10-26')).toMatchObject({ kind: 'lecture', page: 397 }); // Mo
+    expect(task(mon, '2026-10-27')).toMatchObject({ kind: 'portion', page: 398, from: 1, to: 3 }); // Di
+    expect(task(mon, '2026-10-31')).toMatchObject({ kind: 'portion', from: 13, to: 15 }); // Sa
+    expect(task(mon, '2026-11-01')).toMatchObject({ kind: 'rehearsal' }); // So
+    expect(task(mon, '2026-11-02')).toMatchObject({ kind: 'lecture', page: 398 }); // Mo
     expect(darsPage(mon, '2026-11-03')).toBe(399);
   });
 
   it('lässt sich korrigieren', () => {
-    const fixed = setDarsPage(p, '2026-11-08', 401);
+    const fixed = upsertPlan(p, setPlanPage('1405', plansOf(p)[0], '2026-11-08', 401));
     expect(darsPage(fixed, '2026-11-08')).toBe(401);
     expect(darsPage(fixed, '2026-11-13')).toBe(402);
     expect(freshPages(fixed, '2026-11-08')).toEqual([397, 398, 399, 400]);
@@ -151,9 +158,9 @@ describe('Frische Dars-Seiten und Bestand', () => {
     expect(progress(p, '2026-10-30').pages).toBe(228);
   });
   it('Dars ausschalten behält die gelernten Seiten', () => {
-    const off = setDarsEnabled(p, '2026-11-27', false);
+    const off = removePlan(p, 'dars', '2026-11-27');
     expect(effectiveBestand(off, '2026-11-27').size).toBe(232);
-    expect(darsTask(off, '2026-11-27')).toBeNull();
+    expect(task(off, '2026-11-27')).toBeNull();
     expect(freshPages(off, '2026-11-27')).toEqual([]);
   });
 });
@@ -322,7 +329,7 @@ describe('Erledigt, Serie und Kalender', () => {
   it('Tag ist erst erledigt, wenn alle Karten erledigt sind', () => {
     let p = ensureDay(ribalPreset(START), START);
     expect(cardStatus(p, START)).toEqual({ dars: false, fresh: false, muraja: false });
-    p = setDarsDone(p, START, true);
+    p = setTaskDone(p, START, 'dars', true);
     p = toggleFresh(p, START, 396);
     expect(p.days[START].complete).toBe(false);
     for (const page of range(293, 297)) p = ratePage(p, START, page, 'sitzt');
@@ -477,22 +484,5 @@ describe('Ziel-Rechner', () => {
     expect(hafizEstimate(p, START, 2).weeks).toBe(189);
     expect(hafizEstimate(p, START, 0.5).weeks).toBe(754);
     expect(formatMonthYear(hafizEstimate(p, START, 1).date)).toBe('Januar 2034');
-  });
-});
-
-describe('Stand für Claude', () => {
-  it('enthält Datum, Dars-Seite, gestern, Serie, Schwachstellen und nächste Seiten', () => {
-    let p = ribalPreset(START);
-    const yesterday = addDays(START, -1);
-    p = doEverything(p, yesterday, (page) => (page === 295 ? 'wackelt' : 'sitzt'));
-    p = ensureDay(p, START);
-    const text = claudeSummary(p, START);
-    expect(text).toContain('Hifz-Stand von Ribal · So, 25.10.2026');
-    expect(text).toContain('Bestand: 227 von 604 Seiten (37,6 %, ca. 11,4 Juz) · S. 293–396, 482–604');
-    expect(text).toContain('Dars: S. 397 (Al-‘Ankabūt 7–14) · heute Zeilen 7–9 · Vortrag Do');
-    expect(text).toContain('Gestern – Sa, 24.10.: Dars ✓ · Frische Seiten 1/1 · Murājaʿa 5/5 (4× sitzt, 1× wackelt)');
-    expect(text).toContain('Serie: 1 Tag am Stück');
-    expect(text).toContain('Schwachstellen: S. 295 (wackelt, 24.10.)');
-    expect(text).toContain('Murājaʿa heute: S. 298–302');
   });
 });

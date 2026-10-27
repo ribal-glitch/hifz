@@ -10,7 +10,7 @@ const ayahName = (idx: number) => {
   return `${suraName(s)} ${a}`;
 };
 
-/** Zwei Auswahlfelder „Von“ und „Bis“ über die Ajat einer Seite (globale Indizes, ohne Basmala). */
+/** Zwei Auswahlfelder „Von“ und „Bis“ über die Ayat einer Seite (globale Indizes, ohne Basmala). */
 export function AyahRange({
   ayahs,
   from,
@@ -129,7 +129,7 @@ export function PlayerSheet({ onClose }: { onClose: () => void }) {
         )}
         {!st.loop && (
           <div>
-            <label className="lbl">Jede Ajah wiederholen</label>
+            <label className="lbl">Jede Ayah wiederholen</label>
             <div className="chips-row">
               {REPEAT_OPTIONS.map((n) => (
                 <button key={n} type="button" aria-pressed={repeatEach === n} onClick={() => setRepeatEach(n)}>
@@ -140,7 +140,7 @@ export function PlayerSheet({ onClose }: { onClose: () => void }) {
           </div>
         )}
         <div>
-          <label className="lbl">Nachsprech-Pause nach jeder Ajah</label>
+          <label className="lbl">Nachsprech-Pause nach jeder Ayah</label>
           <Seg<string>
             label="Nachsprech-Pause"
             value={echo ? 'an' : 'aus'}

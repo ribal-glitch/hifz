@@ -11,7 +11,7 @@ export interface Reciter {
   style: string;
 }
 
-/** Bekannte Rezitatoren (Hafs ʿan ʿĀṣim), Audio pro Ajah von EveryAyah.com */
+/** Bekannte Rezitatoren (Hafs ʿan ʿĀṣim), Audio pro Ayah von EveryAyah.com */
 export const RECITERS: Reciter[] = [
   { id: 'Husary_128kbps', name: 'Maḥmūd Khalīl al-Ḥuṣarī', style: 'Murattal' },
   { id: 'Husary_Muallim_128kbps', name: 'Maḥmūd Khalīl al-Ḥuṣarī', style: 'Muʿallim – Lehr-Rezitation zum Nachsprechen' },
@@ -43,7 +43,7 @@ function audioUrl(reciter: string, sura: number, aya: number): string {
   return `https://everyayah.com/data/${reciter}/${p(sura)}${p(aya)}.mp3`;
 }
 
-/** Ajat einer Seite (optional nur Zeilen from–to) in Lesereihenfolge; -1 = Basmala. */
+/** Ayat einer Seite (optional nur Zeilen from–to) in Lesereihenfolge; -1 = Basmala. */
 export function ayahsForLines(layout: LayoutData, page: number, from?: number, to?: number): number[] {
   const out: number[] = [];
   layout.pages[page - 1].forEach((line, i) => {
@@ -55,7 +55,7 @@ export function ayahsForLines(layout: LayoutData, page: number, from?: number, t
   return out;
 }
 
-/** Link zum Anhören auf quran.com (Link-Version): Ajat der Zeilen, sonst die ganze Seite. */
+/** Link zum Anhören auf quran.com (Link-Version): Ayat der Zeilen, sonst die ganze Seite. */
 export function listenUrl(ed: EditionId, page: number, from?: number, to?: number): string {
   const layout = cachedLayout(ed);
   if (layout && from && to) {
@@ -69,7 +69,7 @@ export function listenUrl(ed: EditionId, page: number, from?: number, to?: numbe
   return quranComPageUrl(page);
 }
 
-/** Ajat von–bis aus der Seitenliste; eine Basmala direkt davor wird mitgenommen. */
+/** Ayat von–bis aus der Seitenliste; eine Basmala direkt davor wird mitgenommen. */
 export function sliceAyahs(all: number[], from: number, to: number): number[] {
   let i = all.indexOf(Math.min(from, to));
   const j = all.indexOf(Math.max(from, to));
@@ -86,7 +86,7 @@ export function ayahRangeLabel(from: number, to: number): string {
   return a1 === a2 ? `${suraName(s1)} ${a1}` : `${suraName(s1)} ${a1}–${a2}`;
 }
 
-/** quran.com für einen Ajah-Bereich; über eine Sura-Grenze hinweg die ganze Seite. */
+/** quran.com für einen Ayah-Bereich; über eine Sura-Grenze hinweg die ganze Seite. */
 export function rangeUrl(page: number, from: number, to: number): string {
   const [s1, a1] = ayahKey(Math.min(from, to));
   const [s2, a2] = ayahKey(Math.max(from, to));
@@ -98,24 +98,24 @@ export interface PlayRequest {
   page: number;
   from?: number;
   to?: number;
-  /** Wiederholungen pro Ajah (Standard: Einstellung des Profils) */
+  /** Wiederholungen pro Ayah (Standard: Einstellung des Profils) */
   repeatEach?: number;
   /** Wie oft der ganze Bereich läuft */
   rounds?: number;
   reciter?: string;
-  /** Bestimmte Ajat statt der Zeilen einer Seite (globale Indizes) */
+  /** Bestimmte Ayat statt der Zeilen einer Seite (globale Indizes) */
   ayahs?: number[];
   label?: string;
   /** endlos wiederholen, bis man stoppt */
   loop?: boolean;
-  /** Nachsprech-Pause: nach jeder Ajah so lange Stille, wie die Ajah dauerte */
+  /** Nachsprech-Pause: nach jeder Ayah so lange Stille, wie die Ayah dauerte */
   echo?: boolean;
 }
 
 export interface AudioState {
   page: number;
   label: string;
-  /** aktuelle Ajah (globaler Index, -1 = Basmala) */
+  /** aktuelle Ayah (globaler Index, -1 = Basmala) */
   ayah: number | null;
   index: number;
   total: number;
@@ -128,7 +128,7 @@ export interface AudioState {
   echo: boolean;
   /** gerade in der Nachsprech-Pause */
   echoing: boolean;
-  /** gespielte Ajat und alle Ajat der Seite (für Von/Bis), globale Indizes, -1 = Basmala */
+  /** gespielte Ayat und alle Ayat der Seite (für Von/Bis), globale Indizes, -1 = Basmala */
   list: number[];
   all: number[];
   reciter: string;
@@ -159,83 +159,163 @@ export function useAudio(): AudioCtx {
   return c;
 }
 
+/** Nächste Stelle im Ablauf (Wiederholung, nächste Ayah, nächster Durchgang) oder null am Ende. */
+function nextPos(s: AudioState, len: number): AudioState | null {
+  if (s.rep < s.repeatEach) return { ...s, rep: s.rep + 1 };
+  if (s.index + 1 < len) return { ...s, index: s.index + 1, rep: 1 };
+  if (s.loop || s.round < s.rounds) return { ...s, index: 0, rep: 1, round: s.round + 1 };
+  return null;
+}
+
+/** Stille am Anfang und Ende einer Aufnahme (MP3-Polster) überspringen, damit die Ayat nahtlos ineinander übergehen. */
+const trimCache = new WeakMap<AudioBuffer, [number, number]>();
+function trimmed(buf: AudioBuffer): [number, number] {
+  let v = trimCache.get(buf);
+  if (!v) {
+    const d = buf.getChannelData(0);
+    const th = 0.003;
+    let a = 0;
+    while (a < d.length && Math.abs(d[a]) < th) a++;
+    let b = d.length - 1;
+    while (b > a && Math.abs(d[b]) < th) b--;
+    // etwas Luft lassen, damit nichts abgeschnitten klingt
+    const margin = 0.03 * buf.sampleRate;
+    const start = Math.max(0, a - margin) / buf.sampleRate;
+    const end = Math.min(d.length, b + margin) / buf.sampleRate;
+    v = [start, Math.max(0.05, end - start)];
+    trimCache.set(buf, v);
+  }
+  return v;
+}
+
+/**
+ * Wiedergabe über die Web Audio API: jede Ayah wird vorab geladen und dekodiert und
+ * sample-genau direkt im Anschluss an die vorige gestartet – ohne Lücke.
+ */
 export function AudioProvider({ children }: { children: ReactNode }) {
   const { profile, toast } = useStore();
   const [state, setState] = useState<AudioState | null>(null);
-  const el = useRef<HTMLAudioElement | null>(null);
-  /** lädt die nächste Ajah schon während der aktuellen, damit es ohne Lücke weitergeht */
-  const pre = useRef<HTMLAudioElement | null>(null);
+  const ctxRef = useRef<AudioContext | null>(null);
+  const buffers = useRef(new Map<string, Promise<AudioBuffer>>());
+  const sources = useRef<AudioBufferSourceNode[]>([]);
+  const timers = useRef<number[]>([]);
+  /** erhöht sich bei jedem Stopp/Neustart; alte, noch laufende Ladevorgänge verfallen damit */
+  const gen = useRef(0);
   const job = useRef<{ list: number[]; reciter: string; s: AudioState } | null>(null);
-  const timer = useRef<number | undefined>(undefined);
+
+  /** AudioContext beim ersten Abspielen anlegen (muss in der Tipp-Geste passieren) */
+  const ensureCtx = useCallback(() => {
+    if (!ctxRef.current) {
+      const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      ctxRef.current = new AC();
+      // iPhone: auch bei Stummschalter abspielen
+      try {
+        (navigator as unknown as { audioSession?: { type: string } }).audioSession!.type = 'playback';
+      } catch {
+        /* nicht unterstützt */
+      }
+    }
+    if (ctxRef.current.state === 'suspended') void ctxRef.current.resume();
+    return ctxRef.current;
+  }, []);
+
+  const load = useCallback((url: string) => {
+    let p = buffers.current.get(url);
+    if (!p) {
+      const ctx = ctxRef.current!;
+      p = fetch(url)
+        .then((r) => {
+          if (!r.ok) throw new Error(String(r.status));
+          return r.arrayBuffer();
+        })
+        .then((b) => ctx.decodeAudioData(b));
+      buffers.current.set(url, p);
+      p.catch(() => buffers.current.delete(url));
+    }
+    return p;
+  }, []);
+
+  const urlOf = (reciter: string, idx: number) => {
+    const [s, a] = idx === -1 ? [1, 1] : ayahKey(idx);
+    return audioUrl(reciter, s, a);
+  };
+
+  /** Alles Geplante anhalten (die Wiedergabe-Daten bleiben erhalten). */
+  const halt = useCallback(() => {
+    gen.current++;
+    for (const src of sources.current) {
+      try {
+        src.stop();
+      } catch {
+        /* schon beendet */
+      }
+    }
+    sources.current = [];
+    for (const t of timers.current) window.clearTimeout(t);
+    timers.current = [];
+  }, []);
 
   const stop = useCallback(() => {
-    window.clearTimeout(timer.current);
-    el.current?.pause();
+    halt();
     job.current = null;
     setState(null);
-  }, []);
+  }, [halt]);
 
-  const playCurrent = useCallback(() => {
-    const j = job.current;
-    if (!j) return;
-    const idx = j.list[j.s.index];
-    const [s, a] = idx === -1 ? [1, 1] : ayahKey(idx);
-    el.current ??= new Audio();
-    const audio = el.current;
-    const url = audioUrl(j.reciter, s, a);
-    // dieselbe Ajah noch einmal: zurückspulen statt neu laden
-    if (audio.src === url) audio.currentTime = 0;
-    else audio.src = url;
-    j.s = { ...j.s, ayah: idx, paused: false, echoing: false };
-    setState(j.s);
-    audio.play().catch(() => {
-      /* Fehler meldet onerror */
-    });
-    // nächste Ajah vorladen (bei Wiederholung derselben Ajah ist sie schon da)
-    const st = j.s;
-    const nextIdx =
-      st.rep < st.repeatEach ? null : st.index + 1 < j.list.length ? j.list[st.index + 1] : st.loop || st.round < st.rounds ? j.list[0] : null;
-    if (nextIdx !== null && nextIdx !== idx) {
-      const [ns, na] = nextIdx === -1 ? [1, 1] : ayahKey(nextIdx);
-      pre.current ??= new Audio();
-      pre.current.preload = 'auto';
-      pre.current.src = audioUrl(j.reciter, ns, na);
-    }
-  }, []);
+  const later = (ms: number, fn: () => void) => timers.current.push(window.setTimeout(fn, Math.max(0, ms)));
 
-  const advance = useCallback(() => {
-    const j = job.current;
-    if (!j) return;
-    const s = j.s;
-    if (s.rep < s.repeatEach) j.s = { ...s, rep: s.rep + 1 };
-    else if (s.index + 1 < j.list.length) j.s = { ...s, index: s.index + 1, rep: 1 };
-    else if (s.loop || s.round < s.rounds) j.s = { ...s, index: 0, rep: 1, round: s.round + 1 };
-    else {
-      stop();
-      return;
-    }
-    // Ohne Nachsprech-Pause geht es sofort weiter; mit Pause so lang wie die gehörte Ajah (1–30 s)
-    if (!s.echo) {
-      playCurrent();
-      return;
-    }
-    const dur = el.current?.duration ?? 0;
-    const wait = Number.isFinite(dur) && dur > 0 ? Math.min(30_000, Math.max(1000, dur * 1000)) : 1000;
-    j.s = { ...j.s, echoing: true };
-    setState(j.s);
-    timer.current = window.setTimeout(playCurrent, wait);
-  }, [playCurrent, stop]);
-
-  useEffect(() => {
-    el.current ??= new Audio();
-    const audio = el.current;
-    audio.onended = advance;
-    audio.onerror = () => {
-      if (!job.current) return;
-      stop();
-      toast('Audio nicht erreichbar – bist du online?');
-    };
-  }, [advance, stop, toast]);
+  /** Stelle `pos` zum Zeitpunkt `when` (AudioContext-Zeit) einplanen und die nächste vorbereiten. */
+  const schedule = useCallback(
+    (g: number, pos: AudioState, when: number) => {
+      const j = job.current;
+      const ctx = ctxRef.current;
+      if (!j || !ctx || g !== gen.current) return;
+      const idx = j.list[pos.index];
+      load(urlOf(j.reciter, idx))
+        .then((buf) => {
+          if (g !== gen.current) return;
+          const [off, dur] = trimmed(buf);
+          const start = Math.max(when, ctx.currentTime + 0.03);
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+          src.connect(ctx.destination);
+          src.start(start, off, dur);
+          sources.current.push(src);
+          src.onended = () => {
+            sources.current = sources.current.filter((x) => x !== src);
+          };
+          const msUntil = (t: number) => (t - ctx.currentTime) * 1000;
+          // Anzeige umschalten, wenn die Ayah tatsächlich beginnt
+          later(msUntil(start), () => {
+            if (g !== gen.current || !job.current) return;
+            job.current.s = { ...pos, ayah: idx, paused: false, echoing: false };
+            setState(job.current.s);
+          });
+          const next = nextPos(pos, j.list.length);
+          const end = start + dur;
+          if (!next) {
+            later(msUntil(end) + 80, () => g === gen.current && stop());
+            return;
+          }
+          // Nachsprech-Pause so lang wie die Ayah (1–30 s)
+          const pause = pos.echo ? Math.min(30, Math.max(1, dur)) : 0;
+          if (pause)
+            later(msUntil(end), () => {
+              if (g !== gen.current || !job.current) return;
+              job.current.s = { ...job.current.s, echoing: true };
+              setState(job.current.s);
+            });
+          // die nächste Ayah gleich laden und einplanen, sobald diese beginnt
+          void load(urlOf(j.reciter, j.list[next.index])).catch(() => {});
+          later(msUntil(start), () => schedule(g, next, end + pause));
+        })
+        .catch(() => {
+          if (g !== gen.current) return;
+          stop();
+          toast('Audio nicht erreichbar – bist du online?');
+        });
+    },
+    [load, stop, toast],
+  );
 
   // Profilwechsel beendet die Wiedergabe; Layout schon einmal vorladen
   useEffect(() => {
@@ -246,8 +326,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const play = useCallback(
     async (req: PlayRequest) => {
       stop();
-      // Das Layout ist normalerweise schon geladen; dann startet die Wiedergabe noch
-      // innerhalb der Tipp-Geste (wichtig für iOS).
+      // noch innerhalb der Tipp-Geste: Audio freischalten (wichtig für iOS)
+      const ctx = ensureCtx();
       const layout = cachedLayout(req.edition) ?? (req.ayahs ? null : await loadLayout(req.edition));
       const list = req.ayahs ?? ayahsForLines(layout!, req.page, req.from, req.to);
       if (!list.length) return;
@@ -255,55 +335,53 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       const reciter = req.reciter ?? profile?.reciter ?? DEFAULT_RECITER;
       const repeatEach = req.loop ? 1 : (req.repeatEach ?? profile?.repeatEach ?? 3);
       const label = req.label ?? (req.from ? `S. ${req.page}, Zeilen ${req.from}–${req.to}` : `S. ${req.page}`);
-      job.current = {
+      const s: AudioState = {
+        page: req.page,
+        label,
+        ayah: list[0],
+        index: 0,
+        total: list.length,
+        rep: 1,
+        repeatEach,
+        round: 1,
+        rounds: req.rounds ?? 1,
+        paused: false,
+        loop: !!req.loop,
+        echo: req.echo ?? profile?.echoPause ?? false,
+        echoing: false,
         list,
+        all,
         reciter,
-        s: {
-          page: req.page,
-          label,
-          ayah: null,
-          index: 0,
-          total: list.length,
-          rep: 1,
-          repeatEach,
-          round: 1,
-          rounds: req.rounds ?? 1,
-          paused: false,
-          loop: !!req.loop,
-          echo: req.echo ?? profile?.echoPause ?? false,
-          echoing: false,
-          list,
-          all,
-          reciter,
-        },
       };
-      playCurrent();
+      job.current = { list, reciter, s };
+      setState(s);
+      schedule(gen.current, s, ctx.currentTime);
     },
-    [playCurrent, profile?.reciter, profile?.repeatEach, profile?.echoPause, stop],
+    [ensureCtx, schedule, profile?.reciter, profile?.repeatEach, profile?.echoPause, stop],
   );
 
+  /** Pause hält alles an; Weiter beginnt die aktuelle Ayah von vorn. */
   const toggle = useCallback(() => {
-    const audio = el.current;
     const j = job.current;
-    if (!audio || !j) return;
+    if (!j) return;
     if (j.s.paused) {
-      // aus der Pause (auch einer unterbrochenen Nachsprech-Pause) weiter
-      if (j.s.echoing) playCurrent();
-      else audio.play().catch(() => {});
-      j.s = { ...j.s, paused: false };
+      const ctx = ensureCtx();
+      j.s = { ...j.s, paused: false, echoing: false };
+      setState(j.s);
+      schedule(gen.current, j.s, ctx.currentTime);
     } else {
-      window.clearTimeout(timer.current);
-      audio.pause();
+      halt();
       j.s = { ...j.s, paused: true };
+      setState(j.s);
     }
-    setState(j.s);
-  }, [playCurrent]);
+  }, [ensureCtx, halt, schedule]);
 
   const restart = useCallback(
     (req: RestartRequest) => {
       const j = job.current;
       if (!j) return;
-      window.clearTimeout(timer.current);
+      halt();
+      const ctx = ensureCtx();
       const list = req.list ?? j.list;
       const reciter = req.reciter ?? j.reciter;
       j.list = list;
@@ -316,13 +394,16 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         index: 0,
         rep: 1,
         round: 1,
+        paused: false,
+        echoing: false,
         label: req.label ?? j.s.label,
         repeatEach: j.s.loop ? 1 : (req.repeatEach ?? j.s.repeatEach),
         echo: req.echo ?? j.s.echo,
       };
-      playCurrent();
+      setState(j.s);
+      schedule(gen.current, j.s, ctx.currentTime);
     },
-    [playCurrent],
+    [ensureCtx, halt, schedule],
   );
 
   const value = useMemo(() => ({ state, play, toggle, stop, restart }), [state, play, toggle, stop, restart]);

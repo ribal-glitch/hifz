@@ -1,5 +1,5 @@
 import { addDays, weekday, type ISODate } from './dates';
-import { darsPage, effectiveBestand } from './plan';
+import { effectiveBestand, learnTasks } from './plan';
 import type { Profile } from './profile';
 import { JUZ_COUNT, PAGE_COUNT, SURAS, juzPages, range, suraPages } from './quran';
 
@@ -34,13 +34,14 @@ export function suraStatus(
   date: ISODate,
 ): { sura: number; state: SuraState; done: number; total: number; from: number; to: number }[] {
   const set = effectiveBestand(profile, date);
-  const dp = profile.dars.enabled ? darsPage(profile, date) : -1;
+  // Seiten, die gerade in einem Lernplan dran sind
+  const learning = new Set(learnTasks(profile, date).flatMap((t) => t.week.map((s) => s.page)));
   return SURAS.map((s) => {
     const [from, to] = suraPages(profile.edition, s.n);
     const pages = range(from, to);
     const done = pages.filter((p) => set.has(p)).length;
     let state: SuraState = done === pages.length ? 'auswendig' : done ? 'teilweise' : 'offen';
-    if (state !== 'auswendig' && ((dp >= from && dp <= to) || profile.learning?.includes(s.n))) state = 'dars';
+    if (state !== 'auswendig' && (pages.some((p) => learning.has(p)) || profile.learning?.includes(s.n))) state = 'dars';
     return { sura: s.n, state, done, total: pages.length, from, to };
   });
 }

@@ -2,7 +2,7 @@ import type { LineData, TextData } from '../data/quranData';
 
 export const FONT = '"KFGQPC Hafs"';
 export const GAP_EM = 0.12;
-const MAX_FS = 30;
+const MAX_FS = 46;
 export const MIN_FS = 14;
 
 let measureCtx: CanvasRenderingContext2D | null = null;
@@ -32,7 +32,7 @@ function lineWords(line: LineData, text: TextData): string[] {
 /** Größte Schriftgröße, bei der jede Zeile der Seite in die Breite passt. */
 export function fitFontSize(lines: LineData[], text: TextData, width: number): number {
   // Obergrenze relativ zur Breite, damit locker gesetzte Seiten nicht sprunghaft größer werden
-  let fs = Math.min(MAX_FS, width * 0.064);
+  let fs = Math.min(MAX_FS, width * 0.08);
   for (const line of lines) {
     if (line[0] !== 't') continue;
     const words = lineWords(line, text);
@@ -43,7 +43,7 @@ export function fitFontSize(lines: LineData[], text: TextData, width: number): n
   return Math.max(MIN_FS, Math.floor(fs * 10) / 10);
 }
 
-/** Zu jeder Ajah: auf welcher Zeile der Seite jedes ihrer Wörter steht. */
+/** Zu jeder Ayah: auf welcher Zeile der Seite jedes ihrer Wörter steht. */
 export function wordLines(lines: LineData[]): Map<number, number[]> {
   const out = new Map<number, number[]>();
   lines.forEach((l, i) => {
@@ -57,7 +57,7 @@ export function wordLines(lines: LineData[]): Map<number, number[]> {
   return out;
 }
 
-/** Ajat mit Wörtern ab einer Zeile, in Lesereihenfolge (globale Indizes, ohne Basmala). */
+/** Ayat mit Wörtern ab einer Zeile, in Lesereihenfolge (globale Indizes, ohne Basmala). */
 export function ayahsFromLine(lines: LineData[], fromLine = 1): number[] {
   const out: number[] = [];
   lines.forEach((l, i) => {
