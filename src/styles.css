@@ -1452,7 +1452,7 @@ label.lbl {
 }
 
 .mline .w.playing {
-  color: var(--accent);
+  color: var(--sky);
 }
 
 .mline.sura-head .words {
@@ -2664,4 +2664,72 @@ a.btn.primary {
   flex-basis: 100%;
   min-width: 0;
   margin-top: 4px;
+}
+
+/* ---------- Blättern am Laptop ---------- */
+
+.page-arrow {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reader {
+    position: relative;
+  }
+
+  .page-arrow {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    top: 50%;
+    z-index: 3;
+    width: 40px;
+    height: 64px;
+    margin-top: -32px;
+    padding: 0 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    color: var(--text);
+    font-size: 30px;
+    line-height: 1;
+    opacity: 0.55;
+    transition: opacity 0.15s;
+  }
+
+  .page-arrow:hover {
+    opacity: 1;
+  }
+
+  .page-arrow:disabled {
+    visibility: hidden;
+  }
+
+  /* wie im Mushaf: links geht es weiter, rechts zurück */
+  .page-arrow.next {
+    left: 4px;
+  }
+
+  .page-arrow.prev {
+    right: 4px;
+  }
+}
+
+/* breiter Bildschirm: Pfeile neben der Seite statt über dem Text */
+@media (hover: hover) and (pointer: fine) and (min-width: 760px) {
+  .page-arrow.next {
+    left: -58px;
+  }
+
+  .page-arrow.prev {
+    right: -58px;
+  }
+}
+
+/* gerade abgespielte Ajah beim Anhören in „Lernen“ */
+.covered-page .w.playing {
+  color: var(--sky);
+  background: var(--sky-soft);
+  border-radius: 4px;
 }

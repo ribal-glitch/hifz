@@ -163,6 +163,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const { profile, toast } = useStore();
   const [state, setState] = useState<AudioState | null>(null);
   const el = useRef<HTMLAudioElement | null>(null);
+  /** lädt die nächste Ajah schon während der aktuellen, damit es ohne Lücke weitergeht */
+  const pre = useRef<HTMLAudioElement | null>(null);
   const job = useRef<{ list: number[]; reciter: string; s: AudioState } | null>(null);
   const timer = useRef<number | undefined>(undefined);
 
@@ -180,12 +182,25 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const [s, a] = idx === -1 ? [1, 1] : ayahKey(idx);
     el.current ??= new Audio();
     const audio = el.current;
-    audio.src = audioUrl(j.reciter, s, a);
+    const url = audioUrl(j.reciter, s, a);
+    // dieselbe Ajah noch einmal: zurückspulen statt neu laden
+    if (audio.src === url) audio.currentTime = 0;
+    else audio.src = url;
     j.s = { ...j.s, ayah: idx, paused: false, echoing: false };
     setState(j.s);
     audio.play().catch(() => {
       /* Fehler meldet onerror */
     });
+    // nächste Ajah vorladen (bei Wiederholung derselben Ajah ist sie schon da)
+    const st = j.s;
+    const nextIdx =
+      st.rep < st.repeatEach ? null : st.index + 1 < j.list.length ? j.list[st.index + 1] : st.loop || st.round < st.rounds ? j.list[0] : null;
+    if (nextIdx !== null && nextIdx !== idx) {
+      const [ns, na] = nextIdx === -1 ? [1, 1] : ayahKey(nextIdx);
+      pre.current ??= new Audio();
+      pre.current.preload = 'auto';
+      pre.current.src = audioUrl(j.reciter, ns, na);
+    }
   }, []);
 
   const advance = useCallback(() => {
@@ -199,13 +214,15 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       stop();
       return;
     }
-    // Nachsprech-Pause so lang wie die gehörte Ajah (1–30 s), sonst nur ein kurzer Atemzug
-    const dur = el.current?.duration ?? 0;
-    const wait = s.echo && Number.isFinite(dur) && dur > 0 ? Math.min(30_000, Math.max(1000, dur * 1000)) : 350;
-    if (s.echo) {
-      j.s = { ...j.s, echoing: true };
-      setState(j.s);
+    // Ohne Nachsprech-Pause geht es sofort weiter; mit Pause so lang wie die gehörte Ajah (1–30 s)
+    if (!s.echo) {
+      playCurrent();
+      return;
     }
+    const dur = el.current?.duration ?? 0;
+    const wait = Number.isFinite(dur) && dur > 0 ? Math.min(30_000, Math.max(1000, dur * 1000)) : 1000;
+    j.s = { ...j.s, echoing: true };
+    setState(j.s);
     timer.current = window.setTimeout(playCurrent, wait);
   }, [playCurrent, stop]);
 

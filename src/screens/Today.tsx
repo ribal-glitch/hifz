@@ -212,7 +212,11 @@ function PageLink({ page, onOpen, children }: { page: number; onOpen: () => void
 }
 
 /** Was ein Lernschritt direkt darunter öffnet: die Seite zum Lesen oder verdeckt zum Aufsagen. */
-type InlineView = { mode: 'read'; page: number; hl?: [number, number] } | { mode: 'cover'; page: number; from: number };
+type InlineView =
+  | { mode: 'read'; page: number; hl?: [number, number] }
+  | { mode: 'cover'; page: number; from: number }
+  /** Anhören mit dem Text darunter; die gerade gespielte Ajah ist markiert */
+  | { mode: 'listen'; page: number; from?: number; to?: number; repeatEach?: number };
 
 export interface MethodItem {
   /** Kennung zum Abhaken, eindeutig für den Tag */
@@ -221,6 +225,8 @@ export interface MethodItem {
   detail: string;
   /** Anhören (Knopf oder Link) oder Ansichten, die sich darunter öffnen */
   actions: (ReactNode | InlineView)[];
+  /** Beschriftung neben dem Abspiel-Symbol, z. B. „ Hören“ */
+  listenLabel?: string;
 }
 
 const isView = (a: ReactNode | InlineView): a is InlineView => !!a && typeof a === 'object' && 'mode' in a;
@@ -231,9 +237,24 @@ const isView = (a: ReactNode | InlineView): a is InlineView => !!a && typeof a =
  */
 function MethodList({ items, onAllDone, stacked }: { items: MethodItem[]; onAllDone?: () => void; stacked?: boolean }) {
   const { profile, today, update } = useStore();
+  const audio = useAudio();
   const [open, setOpen] = useState<string | null>(null);
   if (!profile) return null;
   const done = new Set(profile.days[today]?.steps ?? []);
+  const ed = profile.edition;
+  const openView = (key: string, v: InlineView, isOpen: boolean) => {
+    if (v.mode === 'listen') {
+      if (isOpen) {
+        if (audio.state?.page === v.page) audio.stop();
+      } else if (IS_ARTIFACT) {
+        // in claude.ai spielt quran.com; der Text erscheint trotzdem hier
+        window.open(v.from && v.to ? listenUrl(ed, v.page, v.from, v.to) : quranComPageUrl(v.page), '_blank', 'noopener');
+      } else {
+        void audio.play({ edition: ed, page: v.page, from: v.from, to: v.to, repeatEach: v.repeatEach });
+      }
+    }
+    setOpen(isOpen ? null : key);
+  };
   const toggle = (id: string) => {
     const nowDone = !done.has(id);
     update((p) => toggleStep(p, today, id));
@@ -257,8 +278,26 @@ function MethodList({ items, onAllDone, stacked }: { items: MethodItem[]; onAllD
                   const key = `${it.id}#${i}`;
                   const isOpen = open === key;
                   return (
-                    <button key={i} type="button" className="btn" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}>
-                      {isOpen ? 'Zu' : a.mode === 'read' ? 'Lesen' : 'Prüfen'}
+                    <button
+                      key={i}
+                      type="button"
+                      className="btn"
+                      aria-expanded={isOpen}
+                      aria-label={a.mode === 'listen' ? (isOpen ? 'Anhören beenden' : `Seite ${a.page} anhören`) : undefined}
+                      onClick={() => openView(key, a, isOpen)}
+                    >
+                      {a.mode === 'listen' ? (
+                        <>
+                          <Icon name={isOpen ? 'stop' : 'play'} />
+                          {it.listenLabel ?? ''}
+                        </>
+                      ) : isOpen ? (
+                        'Zu'
+                      ) : a.mode === 'read' ? (
+                        'Lesen'
+                      ) : (
+                        'Prüfen'
+                      )}
                     </button>
                   );
                 })}
@@ -266,8 +305,16 @@ function MethodList({ items, onAllDone, stacked }: { items: MethodItem[]; onAllD
               <Check small on={done.has(it.id)} onToggle={() => toggle(it.id)} label={`${typeof it.what === 'string' ? it.what : 'Schritt'} erledigt`} />
               {view && (
                 <div className="method-inline">
-                  {view.mode === 'read' ? (
-                    <CoveredPage key={`r-${view.page}`} edition={profile.edition} page={view.page} read hl={view.hl} />
+                  {view.mode === 'listen' ? (
+                    <CoveredPage
+                      key={`l-${view.page}`}
+                      edition={ed}
+                      page={view.page}
+                      listen
+                      hl={view.from && view.to ? [view.from, view.to] : undefined}
+                    />
+                  ) : view.mode === 'read' ? (
+                    <CoveredPage key={`r-${view.page}`} edition={ed} page={view.page} read hl={view.hl} />
                   ) : (
                     <CoveredPage key={`c-${view.page}-${view.from}`} edition={profile.edition} page={view.page} from={view.from} />
                   )}
@@ -278,33 +325,6 @@ function MethodList({ items, onAllDone, stacked }: { items: MethodItem[]; onAllD
         })}
       </ol>
     </div>
-  );
-}
-
-/** Knopf zum Anhören: in der Link-Version auf quran.com, sonst im eigenen Player. */
-function ListenButton({ page, from, to, repeatEach, label }: { page: number; from?: number; to?: number; repeatEach?: number; label?: string }) {
-  const { profile } = useStore();
-  const audio = useAudio();
-  if (!profile) return null;
-  return IS_ARTIFACT ? (
-    <a
-      className="btn"
-      href={from && to ? listenUrl(profile.edition, page, from, to) : quranComPageUrl(page)}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={label === '' ? `Seite ${page} auf quran.com anhören` : undefined}
-    >
-      <Icon name="play" /> {label ?? 'Hören'}
-    </a>
-  ) : (
-    <button
-      type="button"
-      className="btn"
-      aria-label={label === '' ? `Seite ${page} anhören` : undefined}
-      onClick={() => void audio.play({ edition: profile.edition, page, from, to, repeatEach })}
-    >
-      <Icon name="play" /> {label ?? 'Hören'}
-    </button>
   );
 }
 
@@ -324,7 +344,8 @@ function DarsMethod({ task }: { task: DarsTask }) {
       id: 'listen',
       what: 'Anhören',
       detail: IS_ARTIFACT ? 'mehrmals, auf quran.com' : `jede Ajah ${reps}× · ${reciter.name.split(' ').slice(-1)[0]}`,
-      actions: [<ListenButton page={task.page} from={task.from} to={task.to} />],
+      actions: [{ mode: 'listen', page: task.page, from: task.from, to: task.to }],
+      listenLabel: ' Hören',
     });
     items.push({
       id: 'read',
@@ -359,7 +380,8 @@ function DarsMethod({ task }: { task: DarsTask }) {
       id: 'listen',
       what: 'Ganze Seite anhören',
       detail: 'einmal durchgehend, auf Tajwīd achten',
-      actions: [<ListenButton page={task.page} repeatEach={1} />],
+      actions: [{ mode: 'listen', page: task.page, repeatEach: 1 }],
+      listenLabel: ' Hören',
     });
     items.push({
       id: 'rehearse',
@@ -713,17 +735,21 @@ function FreeReviews({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
   const { profile, today, update, toast } = useStore();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [by, setBy] = useState<'pages' | 'sura'>('pages');
+  const [sura, setSura] = useState(0);
   if (!profile) return null;
   const entries = profile.days[today]?.free ?? [];
-  const a = Number(from);
-  const b = Number(to || from);
-  const valid = a >= 1 && b <= PAGE_COUNT && a <= b && b - a < 40;
+  // nach Sura: alle Seiten der Sura (die längste, al-Baqara, hat 48 Seiten)
+  const [a, b] = by === 'sura' ? (sura ? suraPages(profile.edition, sura) : [0, 0]) : [Number(from), Number(to || from)];
+  const valid = a >= 1 && b <= PAGE_COUNT && a <= b && b - a < 50;
   const log = (r: Rating) => {
     if (!valid) return;
     update((p) => logFreeReview(p, today, range(a, b), r));
-    toast(`${a === b ? `S. ${a}` : `S. ${a}–${b}`} als „${r === 'fehler' ? 'Fehler' : r}“ eingetragen`);
+    const what = by === 'sura' ? SURAS[sura - 1].tr : a === b ? `S. ${a}` : `S. ${a}–${b}`;
+    toast(`${what} als „${r === 'fehler' ? 'Fehler' : r}“ eingetragen`);
     setFrom('');
     setTo('');
+    setSura(0);
   };
   const label = { sitzt: 'sitzt', wackelt: 'wackelt', fehler: 'Fehler' } as const;
   return (
@@ -731,20 +757,52 @@ function FreeReviews({ onOpen }: { onOpen: (t: ReadTarget) => void }) {
       title="Außerhalb des Plans"
       intro="Seiten, die du zusätzlich wiederholt hast, z. B. im Gebet oder unterwegs. Sie zählen für Festigung und Schwachstellen; der Plan läuft unverändert weiter."
     >
-      <div className="free-form">
-        <div>
-          <label className="lbl" htmlFor="free-from">
-            Von Seite
-          </label>
-          <input id="free-from" className="field" inputMode="numeric" value={from} onChange={(e) => setFrom(e.target.value.replace(/\D/g, ''))} />
-        </div>
-        <div>
-          <label className="lbl" htmlFor="free-to">
-            Bis Seite (optional)
-          </label>
-          <input id="free-to" className="field" inputMode="numeric" value={to} onChange={(e) => setTo(e.target.value.replace(/\D/g, ''))} />
-        </div>
+      <div style={{ marginBottom: 10 }}>
+        <Seg<'pages' | 'sura'>
+          label="Eintragen nach"
+          value={by}
+          onChange={setBy}
+          options={[
+            { value: 'pages', label: 'Seiten' },
+            { value: 'sura', label: 'Sura' },
+          ]}
+        />
       </div>
+      {by === 'pages' ? (
+        <div className="free-form">
+          <div>
+            <label className="lbl" htmlFor="free-from">
+              Von Seite
+            </label>
+            <input id="free-from" className="field" inputMode="numeric" value={from} onChange={(e) => setFrom(e.target.value.replace(/\D/g, ''))} />
+          </div>
+          <div>
+            <label className="lbl" htmlFor="free-to">
+              Bis Seite (optional)
+            </label>
+            <input id="free-to" className="field" inputMode="numeric" value={to} onChange={(e) => setTo(e.target.value.replace(/\D/g, ''))} />
+          </div>
+        </div>
+      ) : (
+        <div>
+          <label className="lbl" htmlFor="free-sura">
+            Sura
+          </label>
+          <select id="free-sura" className="field" value={sura} onChange={(e) => setSura(Number(e.target.value))}>
+            <option value={0} disabled>
+              Sura wählen …
+            </option>
+            {SURAS.map((x) => {
+              const [p1, p2] = suraPages(profile.edition, x.n);
+              return (
+                <option key={x.n} value={x.n}>
+                  {x.n}. {x.tr} (S. {p1 === p2 ? p1 : `${p1}–${p2}`})
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      )}
       <div className="rate" role="group" aria-label="Eingetragene Seiten bewerten">
         {RATINGS.map(({ r, label: l }) => (
           <button key={r} type="button" className={r} disabled={!valid} onClick={() => log(r)}>
@@ -1026,7 +1084,7 @@ function LearnOwn({ asking }: { asking: boolean }) {
               id: `own:${p}`,
               what: `S. ${p}${bestand.has(p) ? ' ✓' : ''}`,
               detail: pageRangeLabel(ed, p),
-              actions: [<ListenButton page={p} label="" />, { mode: 'read', page: p }, { mode: 'cover', page: p, from: 1 }],
+              actions: [{ mode: 'listen', page: p }, { mode: 'read', page: p }, { mode: 'cover', page: p, from: 1 }],
             }))}
           />
           <p className="hint">Je Seite: mehrmals anhören, lesen bis es flüssig ist (ca. 10×), dann verdeckt aus dem Gedächtnis aufsagen.</p>

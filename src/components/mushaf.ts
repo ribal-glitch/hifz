@@ -56,3 +56,12 @@ export function wordLines(lines: LineData[]): Map<number, number[]> {
   });
   return out;
 }
+
+/** Ajat mit Wörtern ab einer Zeile, in Lesereihenfolge (globale Indizes, ohne Basmala). */
+export function ayahsFromLine(lines: LineData[], fromLine = 1): number[] {
+  const out: number[] = [];
+  lines.forEach((l, i) => {
+    if (l[0] === 't' && i + 1 >= fromLine) for (const [idx] of l[1]) if (!out.includes(idx)) out.push(idx);
+  });
+  return out;
+}

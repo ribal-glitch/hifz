@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useMushafData } from '../data/quranData';
 import { SURAS, type EditionId } from '../logic/quran';
+import { useAudio } from '../audio';
 import { Switch } from '../ui';
-import { FONT, GAP_EM, clearWidthCache, fitFontSize } from './mushaf';
+import { FONT, GAP_EM, ayahsFromLine, clearWidthCache, fitFontSize, wordLines } from './mushaf';
 
 const FIRST_WORD_KEY = 'hifz:firstWord';
 
@@ -15,10 +16,11 @@ function readFirstWord(): boolean {
 }
 
 /**
- * Mushaf-Seite zum Abfragen direkt in der Liste: verdeckt, ein Tipp deckt die nächste Zeile auf.
+ * Mushaf-Seite zum Abfragen direkt in der Liste: verdeckt, ein Tipp deckt die nächste Ajah auf.
  * Mit `from` beginnt das Verdecken erst ab dieser Zeile; mit `cue` bleibt nur die Zeile davor
  * als Stichwort stehen und alles darüber ist ebenfalls verdeckt (Prüfung mitten auf der Seite).
- * Mit `read` ist nichts verdeckt: zum Lesen, mit hervorgehobenen Zeilen `hl` und Wiederholungszähler.
+ * Mit `read` ist nichts verdeckt: zum Lesen, mit hervorgehobenen Zeilen `hl` und Wiederholungszähler
+ * (ohne Zähler bei `listen`). Die gerade abgespielte Ajah ist immer markiert.
  */
 export function CoveredPage({
   edition,
@@ -26,6 +28,7 @@ export function CoveredPage({
   from = 1,
   cue = false,
   read = false,
+  listen = false,
   hl,
 }: {
   edition: EditionId;
@@ -33,9 +36,12 @@ export function CoveredPage({
   from?: number;
   cue?: boolean;
   read?: boolean;
+  listen?: boolean;
   hl?: [number, number];
 }) {
   const data = useMushafData(edition);
+  const audio = useAudio();
+  const playing = audio.state?.page === page ? audio.state.ayah : null;
   const [count, setCount] = useState(0);
   const [revealed, setRevealed] = useState(0);
   const [showAll, setShowAll] = useState(false);
@@ -78,29 +84,35 @@ export function CoveredPage({
   const fs = fontReady && width ? fitFontSize(lines, text, width) : 20;
   const lineH = fs * 1.9;
 
-  const coverable = lines.map((l, i) => (l[0] === 't' && i + 1 >= from ? i + 1 : 0)).filter(Boolean);
+  const plain = read || listen;
+  const lineOf = wordLines(lines);
+  const coverable = ayahsFromLine(lines, from);
   const open = new Set(coverable.slice(0, revealed));
-  const isHidden = (n: number, isText: boolean) => {
-    if (read || showAll || !isText) return false;
-    if (n >= from) return !open.has(n);
+  /** Wort verdeckt: Ajah noch nicht aufgedeckt (ab der Startzeile) oder bei `cue` alles über dem Stichwort */
+  const wordHidden = (idx: number, wi: number) => {
+    if (plain || showAll) return false;
+    const n = lineOf.get(idx)?.[wi] ?? 0;
+    if (n >= from) return !open.has(idx);
     return cue && n < from - 1;
   };
   const done = showAll || revealed >= coverable.length;
-  const next = () => !read && setRevealed((r) => Math.min(coverable.length, r + 1));
+  const next = () => !plain && setRevealed((r) => Math.min(coverable.length, r + 1));
 
   return (
     <div className="covered-page">
       <div
-        className={`mushaf inline${read ? ' reading' : ''}`}
+        className={`mushaf inline${plain ? ' reading' : ''}`}
         ref={box}
         style={{ fontSize: fs }}
         onClick={next}
-        aria-label={read ? `Seite ${page}` : `Seite ${page}, verdeckt`}
+        aria-label={plain ? `Seite ${page}` : `Seite ${page}, verdeckt`}
       >
         {lines.map((line, i) => {
           const n = i + 1;
-          const hidden = isHidden(n, line[0] === 't');
-          const covered = hidden && !firstWord;
+          const allHidden =
+            line[0] === 't' &&
+            line[1].every(([idx, a, b]) => Array.from({ length: b - a }, (_, k) => a + k).every((wi) => wordHidden(idx, wi)));
+          const covered = allHidden && !firstWord;
           const isHl = (cue && n === from - 1) || (!!hl && n >= hl[0] && n <= hl[1]);
           const cls = ['mline', covered ? 'hidden' : '', isHl ? 'hl' : '', line[0] === 'h' ? 'sura-head' : '']
             .filter(Boolean)
@@ -116,7 +128,7 @@ export function CoveredPage({
                 {line[0] === 'b' && (
                   <div className="words" style={{ justifyContent: 'center', gap: `${GAP_EM * 2}em` }}>
                     {text.basmala.map((w, k) => (
-                      <span key={k} className="w">
+                      <span key={k} className={playing === -1 ? 'w playing' : 'w'}>
                         {w}
                       </span>
                     ))}
@@ -129,9 +141,10 @@ export function CoveredPage({
                         const wi = a + k;
                         const isMarker = wi === text.ayahs[idx].length - 1;
                         // Hinweis: nur das erste Wort jeder Ajah (und die Ajah-Nummer) bleibt sichtbar
-                        const masked = hidden && firstWord && !(wi === 0 || isMarker);
+                        const masked = wordHidden(idx, wi) && !covered && !(firstWord && (wi === 0 || isMarker));
+                        const cls = ['w', masked ? 'masked' : '', playing === idx ? 'playing' : ''].filter(Boolean).join(' ');
                         return (
-                          <span key={`${idx}-${wi}`} className={masked ? 'w masked' : 'w'}>
+                          <span key={`${idx}-${wi}`} className={cls}>
                             {w}
                           </span>
                         );
@@ -145,7 +158,7 @@ export function CoveredPage({
           );
         })}
       </div>
-      {read ? (
+      {listen ? null : read ? (
         <div className="counter" aria-live="polite">
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 600 }}>Wiederholungen</div>
@@ -166,7 +179,7 @@ export function CoveredPage({
           </div>
           <div className="hifz-bar">
             <button type="button" className="btn primary" onClick={next} disabled={done}>
-              Nächste Zeile
+              Nächste Ajah
             </button>
             <button
               type="button"

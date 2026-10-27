@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { REPEAT_OPTIONS, ayahRangeLabel, ayahsForLines, rangeUrl, reciterById, sliceAyahs, useAudio } from '../audio';
 import { AyahRange, ReciterSelect } from '../components/Listen';
-import { FONT, GAP_EM, MIN_FS, clearWidthCache, fitFontSize, wordLines } from '../components/mushaf';
+import { FONT, GAP_EM, MIN_FS, ayahsFromLine, clearWidthCache, fitFontSize, wordLines } from '../components/mushaf';
 import { IS_ARTIFACT, quranComUrl } from '../platform';
 import { ayahKey, useMushafData, type LineData, type TextData } from '../data/quranData';
 import {
@@ -227,10 +227,12 @@ export function Read({
   }
 
   // ---------- Hifz-Modus ----------
-  // Zeile für Zeile aufdecken, auch in der Ansicht mit Übersetzung (dort die Wörter jeder Mushaf-Zeile)
+  // Ajah für Ajah aufdecken; verdeckt wird ab der Startzeile (eine Ajah, die davor beginnt, nur ab dort)
   const coverFrom = hl?.start ?? 1;
-  const coverable = lines ? lines.map((l, i) => (l[0] === 't' && i + 1 >= coverFrom ? i + 1 : 0)).filter(Boolean) : [];
-  const hiddenSet = new Set(hifz ? coverable.slice(revealed) : []);
+  const lineOf = useMemo(() => (lines ? wordLines(lines) : new Map<number, number[]>()), [lines]);
+  const coverable = lines ? ayahsFromLine(lines, coverFrom) : [];
+  const hiddenAyahs = new Set(hifz ? coverable.slice(revealed) : []);
+  const wordHidden = (idx: number, wi: number) => hiddenAyahs.has(idx) && (lineOf.get(idx)?.[wi] ?? 0) >= coverFrom;
   const revealNext = () => setRevealed((r) => Math.min(coverable.length, r + 1));
 
   /** Ein Wort der Ajah, mit Tajwīd-Farben und ggf. ausgeblendet (Hinweis-Modus oder ganz verdeckt). */
@@ -290,6 +292,21 @@ export function Read({
       setSel((cur) => (a === null || a === cur ? null : a));
     }
   };
+
+  // Am Laptop: Pfeiltasten blättern wie im Mushaf (links = weiter, rechts = zurück)
+  useEffect(() => {
+    if (view !== 'page') return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+      if (e.key === 'ArrowLeft' && page < PAGE_COUNT) setPage(page + 1);
+      else if (e.key === 'ArrowRight' && page > 1) setPage(page - 1);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [view, page, setPage]);
 
   if (!profile) return null;
   const juz = pageJuz(ed, page);
@@ -406,7 +423,7 @@ export function Read({
               lines={lines}
               text={text}
               transId={transChoice}
-              hidden={hiddenSet}
+              hiddenWord={wordHidden}
               masked={hint === 'ayah'}
               playingAyah={playingAyah}
               sel={sel}
@@ -419,10 +436,11 @@ export function Read({
             lines.map((line, i) => {
               const n = i + 1;
               const isHl = hl?.from !== undefined && hl.to !== undefined && n >= hl.from && n <= hl.to;
-              const hidden = hiddenSet.has(n);
-              // Hinweis-Modi: nur einzelne Wörter bleiben sichtbar, der Rest wird ausgeblendet
-              const masked = hidden && hint !== 'lines';
-              const covered = hidden && hint === 'lines';
+              // Zeile ganz verdeckt, wenn alle ihre Wörter zu verdeckten Ajat gehören
+              const allHidden =
+                line[0] === 't' &&
+                line[1].every(([idx, a, b]) => Array.from({ length: b - a }, (_, k) => a + k).every((wi) => wordHidden(idx, wi)));
+              const covered = allHidden && hint === 'lines';
               const cls = ['mline', isHl ? 'hl' : '', hl?.start === n ? 'start' : '', covered ? 'hidden' : '', line[0] === 'h' ? 'sura-head' : '']
                 .filter(Boolean)
                 .join(' ');
@@ -446,7 +464,11 @@ export function Read({
                     {line[0] === 't' && (
                       <div className="words" style={line[2] ? { width: `${line[2] * 100}%`, gap: `${GAP_EM}em` } : { gap: `${GAP_EM}em` }}>
                         {line[1].flatMap(([idx, from, to]) =>
-                          text.ayahs[idx].slice(from, to).map((w, k) => renderWord(idx, from + k, w, masked, text.ayahs[idx])),
+                          text.ayahs[idx].slice(from, to).map((w, k) => {
+                            const h = wordHidden(idx, from + k);
+                            // Hinweis-Modus: Anfang und Ende jeder Ajah bleiben sichtbar, sonst ganz verdeckt
+                            return renderWord(idx, from + k, w, h && hint === 'ayah', text.ayahs[idx], h && hint !== 'ayah' && !covered);
+                          }),
                         )}
                       </div>
                     )}
@@ -463,6 +485,25 @@ export function Read({
           </div>
         )}
       </div>
+      {/* Blättern mit der Maus (nur an Geräten mit Mauszeiger sichtbar) */}
+      <button
+        type="button"
+        className="page-arrow next"
+        aria-label="Nächste Seite"
+        disabled={page >= PAGE_COUNT}
+        onClick={() => setPage(page + 1)}
+      >
+        ‹
+      </button>
+      <button
+        type="button"
+        className="page-arrow prev"
+        aria-label="Vorherige Seite"
+        disabled={page <= 1}
+        onClick={() => setPage(page - 1)}
+      >
+        ›
+      </button>
 
       {counter !== null && (
         <div className="counter" aria-live="polite">
@@ -502,7 +543,7 @@ export function Read({
           </div>
           <div className="hifz-bar">
             <button type="button" className="btn primary" onClick={revealNext} disabled={revealed >= coverable.length}>
-              Nächste Zeile
+              Nächste Ajah
             </button>
             <button type="button" className="btn" onClick={() => setRevealed(revealed >= coverable.length ? 0 : coverable.length)}>
               {revealed >= coverable.length ? 'Neu verdecken' : 'Alles zeigen'}
@@ -799,7 +840,7 @@ function AyahView({
   lines,
   text,
   transId,
-  hidden,
+  hiddenWord: isHidden,
   masked,
   playingAyah,
   sel,
@@ -808,15 +849,14 @@ function AyahView({
   lines: LineData[];
   text: TextData;
   transId: TranslationId;
-  /** verdeckte Zeilen der Seite */
-  hidden: Set<number>;
+  /** ob ein Wort einer Ajah verdeckt ist */
+  hiddenWord: (idx: number, wi: number) => boolean;
   masked: boolean;
   playingAyah: number | null;
   sel: number | null;
   renderWord: (idx: number, wi: number, w: string, masked: boolean, ayahWords: string[], full?: boolean) => ReactNode;
 }) {
   const tr = useTranslation(transId);
-  const lineOf = useMemo(() => wordLines(lines), [lines]);
   const seen = new Set<number>();
   const blocks: ReactNode[] = [];
   lines.forEach((l, i) => {
@@ -839,8 +879,7 @@ function AyahView({
         seen.add(idx);
         const [s, a] = ayahKey(idx);
         const words = text.ayahs[idx];
-        const wl = lineOf.get(idx) ?? [];
-        const hiddenWord = (wi: number) => hidden.has(wl[wi]);
+        const hiddenWord = (wi: number) => isHidden(idx, wi);
         const allHidden = words.every((_, wi) => hiddenWord(wi));
         const anyHidden = words.some((_, wi) => hiddenWord(wi));
         const covered = allHidden && !masked;
