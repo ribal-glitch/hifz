@@ -110,7 +110,6 @@ export interface MethodItem {
   views: InlineView[];
 }
 
-const VIEW_LABEL = { listen: 'Hören', read: 'Lesen', cover: 'Prüfen' } as const;
 const VIEW_ICON = { listen: 'play', read: 'read', cover: 'reveal' } as const;
 
 /**
@@ -150,48 +149,38 @@ export function MethodList({ items, onAllDone, stacked }: { items: MethodItem[];
     <div className="panel">
       <ol className="method">
         {items.map((it) => {
-          const openIdx = it.views.findIndex((_, i) => open === `${it.id}#${i}`);
-          const view = openIdx >= 0 ? it.views[openIdx] : null;
-          const cls = [done.has(it.id) ? 'done' : '', stacked ? 'stacked' : ''].filter(Boolean).join(' ');
+          // jeder Schritt hat eine Ansicht: ein Tipp auf die Kachel öffnet bzw. schließt sie
+          const v = it.views[0];
+          const key = `${it.id}#0`;
+          const isOpen = open === key;
+          const cls = [done.has(it.id) ? 'done' : '', isOpen ? 'open' : '', stacked ? 'stacked' : ''].filter(Boolean).join(' ');
           return (
             <li key={it.id} className={cls || undefined}>
-              <div className="what">
-                {it.what}
-                {it.detail && <small>{it.detail}</small>}
-              </div>
-              <div className="method-actions">
-                {it.views.map((v, i) => {
-                  const key = `${it.id}#${i}`;
-                  const isOpen = open === key;
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      className={`btn${isOpen ? ' on' : ''}`}
-                      aria-expanded={isOpen}
-                      aria-label={isOpen ? 'Schließen' : VIEW_LABEL[v.mode]}
-                      title={VIEW_LABEL[v.mode]}
-                      onClick={() => openView(key, v, isOpen)}
-                    >
-                      <Icon name={isOpen ? (v.mode === 'listen' ? 'stop' : 'close') : VIEW_ICON[v.mode]} />
-                    </button>
-                  );
-                })}
-              </div>
+              <button type="button" className="step-tile" aria-expanded={isOpen} onClick={() => v && openView(key, v, isOpen)}>
+                <span className="what">
+                  {it.what}
+                  {it.detail && <small>{it.detail}</small>}
+                </span>
+                {v && (
+                  <span className="tile-icon" aria-hidden="true">
+                    <Icon name={isOpen ? (v.mode === 'listen' ? 'stop' : 'chevron') : VIEW_ICON[v.mode]} />
+                  </span>
+                )}
+              </button>
               <Check small on={done.has(it.id)} onToggle={() => toggle(it.id)} label={`${typeof it.what === 'string' ? it.what : 'Schritt'} erledigt`} />
-              {view && (
+              {isOpen && v && (
                 <div className="method-inline">
-                  {view.segs.map((s) =>
-                    view.mode === 'cover' ? (
-                      <CoveredPage key={`c-${s.page}-${s.from}`} edition={ed} page={s.page} from={s.from} />
+                  {v.segs.map((sg) =>
+                    v.mode === 'cover' ? (
+                      <CoveredPage key={`c-${sg.page}-${sg.from}`} edition={ed} page={sg.page} from={sg.from} />
                     ) : (
                       <CoveredPage
-                        key={`${view.mode}-${s.page}`}
+                        key={`${v.mode}-${sg.page}`}
                         edition={ed}
-                        page={s.page}
-                        read={view.mode === 'read'}
-                        listen={view.mode === 'listen'}
-                        hl={[s.from, s.to]}
+                        page={sg.page}
+                        read={v.mode === 'read'}
+                        listen={v.mode === 'listen'}
+                        hl={[sg.from, sg.to]}
                       />
                     ),
                   )}

@@ -79,7 +79,7 @@ const KIND_LABEL = { portion: 'Heute', rehearsal: 'Probevortrag', lecture: 'Vort
 
 /** „Lernen“: die Lernpläne mit der heutigen Portion; neue Pläne anlegen, fertige weglegen. */
 export function Learn() {
-  const { profile, today } = useStore();
+  const { profile, today, update } = useStore();
   const [editing, setEditing] = useState<LearnPlan | 'new' | null>(null);
   useLayoutReady(profile?.edition ?? '1405');
   if (!profile) return null;
@@ -114,7 +114,12 @@ export function Learn() {
       {archived.length > 0 && (
         <div className="archived" aria-label="Fertig gelernt">
           {archived.map((p) => (
-            <span key={p.id}>✓ {planTitle(profile.edition, p)}</span>
+            <span key={p.id}>
+              ✓ {planTitle(profile.edition, p)}
+              <button type="button" aria-label={`${planTitle(profile.edition, p)} aus der Liste löschen`} onClick={() => update((pr) => removePlan(pr, p.id, today))}>
+                ×
+              </button>
+            </span>
           ))}
         </div>
       )}
@@ -130,6 +135,9 @@ export function Learn() {
 
 function PlanCard({ plan, onEdit }: { plan: LearnPlan; onEdit: () => void }) {
   const { profile, today, update } = useStore();
+  /** erledigte Karte wieder aufklappen */
+  const [expanded, setExpanded] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   if (!profile) return null;
   const ed = profile.edition;
   const task = planTask(ed, plan, today);
@@ -138,11 +146,40 @@ function PlanCard({ plan, onEdit }: { plan: LearnPlan; onEdit: () => void }) {
   const done = taskDone(profile, today, plan.id);
   const pct = prog.total ? Math.round((prog.done / prog.total) * 100) : 0;
   const notStarted = !task && !finished;
+  // heute erledigt: Karte klappt zu, damit „Lernen“ leer und ruhig aussieht
+  const collapsed = done && !finished && !expanded;
+
+  const deleteDialog = confirmDelete && (
+    <Confirm
+      title="Lernplan löschen?"
+      text="Was du bis jetzt gelernt hast, bleibt in der Wiederholung."
+      confirmLabel="Löschen"
+      danger
+      onConfirm={() => {
+        update((p) => removePlan(p, plan.id, today));
+        setConfirmDelete(false);
+      }}
+      onCancel={() => setConfirmDelete(false)}
+    />
+  );
+
+  if (collapsed)
+    return (
+      <section className="plan-card is-done collapsed">
+        <button type="button" className="plan-collapsed" aria-expanded={false} onClick={() => setExpanded(true)}>
+          <span className="done-dot" aria-hidden="true">
+            <Icon name="check" />
+          </span>
+          <span className="plan-title small">{planTitle(ed, plan)}</span>
+          <span className="chev" aria-hidden="true" />
+        </button>
+      </section>
+    );
 
   return (
     <section className={`plan-card${done ? ' is-done' : ''}`}>
       <div className="plan-head">
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }} onClick={() => done && setExpanded(false)}>
           <h2 className="plan-title">{planTitle(ed, plan)}</h2>
           <div className="plan-meta">
             {paceLabel(plan.perWeek)} pro Woche · Vortrag {WEEKDAYS_SHORT[plan.weekday]}
@@ -151,7 +188,11 @@ function PlanCard({ plan, onEdit }: { plan: LearnPlan; onEdit: () => void }) {
         <button type="button" className="iconbtn" aria-label="Lernplan ändern" onClick={onEdit}>
           <Icon name="edit" />
         </button>
+        <button type="button" className="iconbtn" aria-label="Lernplan löschen" onClick={() => setConfirmDelete(true)}>
+          <Icon name="trash" />
+        </button>
       </div>
+      {deleteDialog}
       <div className="plan-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Fortschritt">
         <i style={{ width: `${pct}%` }} />
       </div>

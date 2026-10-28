@@ -32,7 +32,8 @@ export function Icon({
     | 'revealAll'
     | 'edit'
     | 'close'
-    | 'quiz';
+    | 'quiz'
+    | 'trash';
 }) {
   const p = {
     fill: 'none',
@@ -223,6 +224,12 @@ export function Icon({
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="8.5" {...p} />
           <path d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2.9-1.2 1.8M12 16.6v.2" {...p} />
+        </svg>
+      );
+    case 'trash':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4.5 7h15M9.5 7V5h5v2M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5" {...p} />
         </svg>
       );
     case 'chevron':

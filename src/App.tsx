@@ -11,6 +11,7 @@ import { useAudio, reciterById } from './audio';
 import { ayahKey } from './data/quranData';
 import { suraName } from './logic/quran';
 import { useStore } from './store';
+import { IS_ARTIFACT } from './platform';
 import { Avatar, Icon } from './ui';
 import { PlayerSheet } from './components/Listen';
 
@@ -23,7 +24,7 @@ const SLIDES = [
 ] as const;
 
 export function App() {
-  const { ready, profile, toastMsg, needLogin } = useStore();
+  const { ready, profile, toastMsg, needLogin, storageKind } = useStore();
   const audio = useAudio();
   // Start immer mit „Lesen“
   const [active, setActive] = useState(0);
@@ -49,6 +50,11 @@ export function App() {
     [go],
   );
   const targetUsed = useCallback(() => setTarget(null), []);
+
+  // in claude.ai ohne Anmeldung liegt unten ein Hinweis-Banner über der App: Platz dafür lassen
+  useEffect(() => {
+    document.documentElement.classList.toggle('guest', IS_ARTIFACT && storageKind === 'local');
+  }, [storageKind]);
 
   // Beim Öffnen eines Profils immer mit „Lesen“ beginnen
   useLayoutEffect(() => {

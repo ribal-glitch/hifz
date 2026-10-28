@@ -3342,3 +3342,156 @@ a.btn.primary {
   color: var(--err);
   font-weight: 600;
 }
+
+/* ---------- Nichts unter festen Leisten verstecken ---------- */
+
+/* Platz für den Player (Höhe ~58 px) über der Tab-Leiste */
+.app.has-player .slide .content {
+  padding-bottom: calc(var(--player-h, 66px) + 40px);
+}
+
+/* Lesen: der Player schiebt die Seite nach oben statt sie zu verdecken */
+.app.reading.has-player .slide:first-child .content {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);
+}
+
+/* claude.ai ohne Anmeldung: Banner unten freihalten */
+html.guest .tabbar {
+  padding-bottom: 78px;
+}
+
+html.guest .player,
+html.guest .ayah-bar {
+  bottom: calc(var(--tabbar-h) + 86px);
+}
+
+html.guest .app.reading .slide:first-child .content {
+  padding-bottom: 86px;
+}
+
+html.guest .app.reading .player,
+html.guest .app.reading .ayah-bar {
+  bottom: 86px;
+}
+
+html.guest .toast {
+  bottom: calc(var(--tabbar-h) + 96px);
+}
+
+/* ---------- Lernschritte: die ganze Kachel ist der Knopf ---------- */
+
+.step-tile {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  margin: -4px 0;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.step-tile:active,
+.method li.open .step-tile {
+  background: var(--sky-soft);
+}
+
+.step-tile .what {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.step-tile .what small {
+  display: block;
+  font-weight: 400;
+}
+
+.tile-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--sky-soft);
+  color: var(--sky);
+}
+
+.tile-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.method li.open .tile-icon {
+  background: var(--sky);
+  color: #fff;
+}
+
+/* ---------- Lernplan heute erledigt: zugeklappt ---------- */
+
+.plan-card.collapsed {
+  padding: 0;
+  border-left-color: var(--ok);
+  background: var(--ok-soft);
+  box-shadow: none;
+}
+
+.plan-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  background: none;
+  color: var(--ok);
+  font: inherit;
+  text-align: left;
+}
+
+.plan-title.small {
+  flex: 1;
+  font-size: 19px;
+}
+
+.done-dot {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: #fff;
+}
+
+.done-dot svg {
+  width: 16px;
+  height: 16px;
+}
+
+.archived span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.archived button {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+html.guest .who {
+  padding-bottom: 110px;
+}
