@@ -325,7 +325,6 @@ export function Read({
           if (line && line > 1) setHl({ start: line });
           openPage();
         }}
-        onJump={() => setJump(true)}
         jumpSheet={
           jump && (
             <JumpSheet
@@ -935,13 +934,11 @@ function SuraIndex({
   edition,
   lastPage,
   onOpen,
-  onJump,
   jumpSheet,
 }: {
   edition: EditionId;
   lastPage: number;
   onOpen: (page: number, line?: number) => void;
-  onJump: () => void;
   jumpSheet: ReactNode;
 }) {
   const { profile, today } = useStore();
@@ -953,27 +950,35 @@ function SuraIndex({
   const simple = (t: string) => t.normalize('NFD').replace(/[^A-Za-z0-9]/g, '').toLowerCase();
   const suras = SURAS.filter((s) => !query || String(s.n) === query || simple(s.tr).includes(query));
   const label = { auswendig: 'auswendig', dars: 'im Dars', teilweise: 'teilweise', offen: '' } as const;
+  // eine Zahl ist zugleich eine Seitenzahl
+  const pageHit = /^\d+$/.test(query) && Number(query) >= 1 && Number(query) <= PAGE_COUNT ? Number(query) : 0;
   return (
     <div>
-      <button type="button" className="continue" onClick={() => onOpen(lastPage)}>
-        <span className="small">Weiterlesen</span>
-        <b>
-          S. {lastPage} · {pageRangeLabel(edition, lastPage)}
-        </b>
-      </button>
-      <div className="row" style={{ margin: '14px 0 10px' }}>
-        <input
-          id="sura-search"
-          className="field"
-          placeholder="Sura suchen (Name oder Nummer)"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <button type="button" className="iconbtn" aria-label="Zu einer Seite springen" onClick={onJump} style={{ border: '1px solid var(--border)' }}>
-          <Icon name="jump" />
+      <input
+        id="sura-search"
+        className="field search"
+        inputMode="search"
+        placeholder="Sura oder Seite suchen"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
+      {!query && (
+        <button type="button" className="continue" onClick={() => onOpen(lastPage)}>
+          <span>Weiterlesen</span>
+          <b>
+            {pageRangeLabel(edition, lastPage)} · S. {lastPage}
+          </b>
+          <Icon name="prev" />
         </button>
-      </div>
+      )}
+      {pageHit > 0 && (
+        <button type="button" className="continue" onClick={() => onOpen(pageHit)}>
+          <span>Seite {pageHit}</span>
+          <b>{pageRangeLabel(edition, pageHit)}</b>
+          <Icon name="prev" />
+        </button>
+      )}
+      {!query && (
       <Seg<'sura' | 'juz'>
         label="Übersicht nach"
         value={mode}
@@ -983,8 +988,9 @@ function SuraIndex({
           { value: 'juz', label: '30 Juz' },
         ]}
       />
+      )}
       <div style={{ marginTop: 6 }}>
-        {mode === 'sura' &&
+        {(mode === 'sura' || query) &&
           suras.map((s) => {
             const st = status[s.n - 1];
             const [from] = suraPages(edition, s.n);
@@ -994,7 +1000,7 @@ function SuraIndex({
                 <span className="name">
                   {s.tr}
                   <span className="sub" style={{ display: 'block', fontSize: 13 }}>
-                    S. {from} · {s.ayahs} Ayat{label[st.state] ? ` · ${label[st.state]}` : ''}
+                    S. {from}{label[st.state] ? ` · ${label[st.state]}` : ''}
                   </span>
                 </span>
                 <span className="leader" aria-hidden="true" />
@@ -1002,8 +1008,9 @@ function SuraIndex({
               </button>
             );
           })}
-        {mode === 'sura' && suras.length === 0 && <p className="empty">Keine Sura gefunden.</p>}
+        {(mode === 'sura' || query) && suras.length === 0 && !pageHit && <p className="empty">Nichts gefunden.</p>}
         {mode === 'juz' &&
+          !query &&
           Array.from({ length: JUZ_COUNT }, (_, i) => i + 1).map((j) => {
             const [a, b] = juzPages(edition, j);
             return (

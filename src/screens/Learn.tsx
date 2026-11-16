@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { ayahRangeLabel, ayahsForLines } from '../audio';
 import { MethodList, type MethodItem } from '../components/Steps';
-import { cachedLayout, useLayoutReady } from '../data/quranData';
-import { addDays, formatLong, WEEKDAYS, WEEKDAYS_SHORT } from '../logic/dates';
+import { cachedLayout, useLayoutReady, type LayoutData } from '../data/quranData';
+import { SURA_AYAH_START } from '../data/meta.generated';
+import { formatLong, WEEKDAYS, WEEKDAYS_SHORT } from '../logic/dates';
 import {
   PER_WEEK_OPTIONS,
   newPlan,
@@ -23,13 +24,12 @@ import {
   type Segment,
 } from '../logic/learn';
 import { archivePlan, plansOf, removePlan, setTaskDone, taskDone, upsertPlan } from '../logic/plan';
-import { PAGE_COUNT, SURAS, suraPages, type EditionId } from '../logic/quran';
+import { PAGE_COUNT, SURAS, suraPages, suraStartLine, type EditionId } from '../logic/quran';
 import { suraStatus } from '../logic/stats';
 import { useStore } from '../store';
 import { Confirm, Icon, Seg, Sheet, Stepper } from '../ui';
 import { WEEK_ORDER } from './Onboarding';
 
-const paceLabel = (n: number) => (n === 0.5 ? '½ Seite' : n === 1 ? '1 Seite' : `${n} Seiten`);
 
 /** „al-ʿAnkabūt 13–14“ aus den Zeilen; ohne geladenes Layout die Seiten. */
 function segLabel(ed: EditionId, segs: Segment[]): string {
@@ -59,21 +59,18 @@ function upTo(week: Segment[], last: Segment): Segment[] {
 function stepsFor(task: PlanTask): MethodItem[] {
   const id = task.plan.id;
   if (task.kind === 'portion') {
-    const items: MethodItem[] = [
-      { id: `${id}:listen`, what: 'Anhören', views: [{ mode: 'listen', segs: task.segs }] },
-      { id: `${id}:read`, what: 'Lesen', detail: 'ca. 10× laut', views: [{ mode: 'read', segs: task.segs }] },
-      { id: `${id}:recite`, what: 'Auswendig', views: [{ mode: 'cover', segs: task.segs }] },
-    ];
-    if (task.day > 0)
-      items.push({ id: `${id}:connect`, what: 'Verbinden', detail: 'mit den Tagen davor', views: [{ mode: 'cover', segs: upTo(task.week, task.segs[task.segs.length - 1]) }] });
-    return items;
-  }
-  if (task.kind === 'rehearsal')
+    // Prüfen: ab dem zweiten Tag zusammen mit den Tagen davor (verbinden)
+    const test = task.day > 0 ? upTo(task.week, task.segs[task.segs.length - 1]) : task.segs;
     return [
-      { id: `${id}:listen`, what: 'Ganze Woche anhören', views: [{ mode: 'listen', segs: task.week, repeatEach: 1 }] },
-      { id: `${id}:rehearse`, what: 'Probevortrag', detail: '3× fehlerfrei', views: [{ mode: 'cover', segs: task.week }] },
+      { id: `${id}:listen`, what: 'Hören', views: [{ mode: 'listen', segs: task.segs }] },
+      { id: `${id}:read`, what: 'Lesen', views: [{ mode: 'read', segs: task.segs }] },
+      { id: `${id}:recite`, what: 'Prüfen', views: [{ mode: 'cover', segs: test }] },
     ];
-  return [{ id: `${id}:lecture`, what: 'Vortrag', views: [{ mode: 'cover', segs: task.week }] }];
+  }
+  return [
+    { id: `${id}:listen`, what: 'Hören', views: [{ mode: 'listen', segs: task.week, repeatEach: 1 }] },
+    { id: `${id}:rehearse`, what: 'Prüfen', views: [{ mode: 'cover', segs: task.week }] },
+  ];
 }
 
 const KIND_LABEL = { portion: 'Heute', rehearsal: 'Probevortrag', lecture: 'Vortrag' } as const;
@@ -95,19 +92,19 @@ export function Learn() {
       <header className="today-head">
         <div className="date">{formatLong(today)}</div>
         <div className="status">
-          {active.length === 0 ? 'Was möchtest du lernen?' : tasks.length && doneCount === tasks.length ? 'Heute gelernt' : 'Heute lernen'}
+          {active.length === 0 ? 'Was möchtest du lernen?' : tasks.length && doneCount === tasks.length ? 'Heute gelernt' : 'Heute'}
         </div>
       </header>
 
       {active.length === 0 ? (
-        <PlanForm onDone={() => setEditing(null)} />
+        <NewPlanForm onDone={() => setEditing(null)} />
       ) : (
         <>
           {active.map((p) => (
             <PlanCard key={p.id} plan={p} onEdit={() => setEditing(p)} />
           ))}
-          <button type="button" className="btn block" style={{ marginTop: 6 }} onClick={() => setEditing('new')}>
-            <Icon name="plus" /> Weiteren Lernplan
+          <button type="button" className="link-btn add" onClick={() => setEditing('new')}>
+            <Icon name="plus" /> Neues lernen
           </button>
         </>
       )}
@@ -126,8 +123,8 @@ export function Learn() {
       )}
 
       {editing && (
-        <Sheet title={editing === 'new' ? 'Neuer Lernplan' : 'Lernplan ändern'} onClose={() => setEditing(null)}>
-          <PlanForm plan={editing === 'new' ? undefined : editing} onDone={() => setEditing(null)} />
+        <Sheet title={editing === 'new' ? 'Neues lernen' : 'Lernplan ändern'} onClose={() => setEditing(null)}>
+          {editing === 'new' ? <NewPlanForm onDone={() => setEditing(null)} /> : <PlanForm plan={editing} onDone={() => setEditing(null)} />}
         </Sheet>
       )}
     </div>
@@ -138,7 +135,6 @@ function PlanCard({ plan, onEdit }: { plan: LearnPlan; onEdit: () => void }) {
   const { profile, today, update } = useStore();
   /** erledigte Karte wieder aufklappen */
   const [expanded, setExpanded] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   if (!profile) return null;
   const ed = profile.edition;
   const task = planTask(ed, plan, today);
@@ -146,23 +142,8 @@ function PlanCard({ plan, onEdit }: { plan: LearnPlan; onEdit: () => void }) {
   const finished = planFinished(ed, plan, today);
   const done = taskDone(profile, today, plan.id);
   const pct = prog.total ? Math.round((prog.done / prog.total) * 100) : 0;
-  const notStarted = !task && !finished;
   // heute erledigt: Karte klappt zu, damit „Lernen“ leer und ruhig aussieht
   const collapsed = done && !finished && !expanded;
-
-  const deleteDialog = confirmDelete && (
-    <Confirm
-      title="Lernplan löschen?"
-      text="Was du bis jetzt gelernt hast, bleibt in der Wiederholung."
-      confirmLabel="Löschen"
-      danger
-      onConfirm={() => {
-        update((p) => removePlan(p, plan.id, today));
-        setConfirmDelete(false);
-      }}
-      onCancel={() => setConfirmDelete(false)}
-    />
-  );
 
   if (collapsed)
     return (
@@ -183,49 +164,41 @@ function PlanCard({ plan, onEdit }: { plan: LearnPlan; onEdit: () => void }) {
         <div style={{ flex: 1, minWidth: 0 }} onClick={() => done && setExpanded(false)}>
           <h2 className="plan-title">{planTitle(ed, plan)}</h2>
           <div className="plan-meta">
-            {paceLabel(plan.perWeek)} pro Woche · Vortrag {WEEKDAYS_SHORT[plan.weekday]}
+            {task ? (
+              <>
+                <b>{KIND_LABEL[task.kind]}</b> · {segLabel(ed, task.kind === 'portion' ? task.segs : task.week)}
+              </>
+            ) : finished ? (
+              'Fertig gelernt'
+            ) : (
+              `Beginnt am ${formatLong(plan.start)}`
+            )}
           </div>
         </div>
         <button type="button" className="iconbtn" aria-label="Lernplan ändern" onClick={onEdit}>
           <Icon name="edit" />
         </button>
-        <button type="button" className="iconbtn" aria-label="Lernplan löschen" onClick={() => setConfirmDelete(true)}>
-          <Icon name="trash" />
-        </button>
       </div>
-      {deleteDialog}
       <div className="plan-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Fortschritt">
         <i style={{ width: `${pct}%` }} />
       </div>
 
       {finished && (
-        <div className="plan-finished">
-          <span className="emoji" aria-hidden="true">
-            🎉
-          </span>
-          <b>Fertig gelernt!</b>
-          <button type="button" className="btn primary block" onClick={() => update((p) => archivePlan(p, plan.id))}>
-            In die Wiederholung
-          </button>
-        </div>
+        <button type="button" className="btn primary block" onClick={() => update((p) => archivePlan(p, plan.id))}>
+          🎉 In die Wiederholung
+        </button>
       )}
-
-      {notStarted && <p className="small">Beginnt am {formatLong(addDays(plan.start, 0))}.</p>}
 
       {task && (
         <>
-          <div className="today-chip">
-            <b>{KIND_LABEL[task.kind]}</b> {segLabel(ed, task.kind === 'portion' ? task.segs : task.week)}
-          </div>
-          <MethodList items={stepsFor(task)} onAllDone={() => update((p) => setTaskDone(p, today, plan.id, true))} />
-          <WeekStrip plan={plan} />
+          <MethodList compact items={stepsFor(task)} />
           {done ? (
-            <div className="done-line pop" role="status">
+            <div className="plan-done" role="status">
               <Icon name="check" /> Heute geschafft
             </div>
           ) : (
             <button type="button" className="btn primary block mark-done" onClick={() => update((p) => setTaskDone(p, today, plan.id, true))}>
-              <Icon name="check" /> {task.kind === 'lecture' ? 'Vortrag gehalten' : 'Sitzt'}
+              <Icon name="check" /> {task.kind === 'lecture' ? 'Vortrag gehalten' : 'Gelernt'}
             </button>
           )}
         </>
@@ -234,23 +207,186 @@ function PlanCard({ plan, onEdit }: { plan: LearnPlan; onEdit: () => void }) {
   );
 }
 
-/** Die sieben Tage der Lernwoche als farbige Punkte. */
-function WeekStrip({ plan }: { plan: LearnPlan }) {
-  const { profile, today } = useStore();
+const simple = (t: string) => t.normalize('NFD').replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+
+/** Zeilen, auf denen die Ayat a1–a2 einer Sura stehen (vom Anfang von a1 bis zum Ende von a2). */
+function ayahRange(layout: LayoutData, ed: EditionId, sura: number, a1: number, a2: number): Pick<LearnPlan, 'fromPage' | 'fromLine' | 'toPage' | 'toLine'> | null {
+  const i1 = SURA_AYAH_START[sura - 1] + a1 - 1;
+  const i2 = SURA_AYAH_START[sura - 1] + a2 - 1;
+  const [p1, p2] = suraPages(ed, sura);
+  let from: [number, number] | null = null;
+  let to: [number, number] | null = null;
+  for (let p = p1; p <= p2; p++) {
+    layout.pages[p - 1].forEach((l, i) => {
+      if (l[0] !== 't') return;
+      for (const [idx, w] of l[1]) {
+        if (idx === i1 && w === 0 && !from) from = [p, i + 1];
+        if (idx === i2) to = [p, i + 1];
+      }
+    });
+  }
+  if (!from || !to) return null;
+  // ab Ayah 1: mit Sura-Kopf und Basmala
+  const start: [number, number] = a1 === 1 ? [p1, suraStartLine(ed, sura)] : from;
+  return { fromPage: start[0], fromLine: start[1], toPage: (to as [number, number])[0], toLine: (to as [number, number])[1] };
+}
+
+/**
+ * Neues lernen: Sura suchen und antippen. Danach lassen sich weitere Suren hinzufügen
+ * oder – bei einer einzelnen Sura – nur bestimmte Ayat wählen.
+ */
+function NewPlanForm({ onDone }: { onDone: () => void }) {
+  const { profile, today, update, toast } = useStore();
+  const [q, setQ] = useState('');
+  const [picked, setPicked] = useState<number[]>([]);
+  const [part, setPart] = useState(false);
+  const [a1, setA1] = useState(1);
+  const [a2, setA2] = useState(1);
+  const [perWeek, setPerWeek] = useState(1);
+  const [wd, setWd] = useState(4);
+  const [more, setMore] = useState(false);
   if (!profile) return null;
-  const startOfWeek = addDays(plan.start, 7 * weekIndex(plan, today));
+  const ed = profile.edition;
+  const status = suraStatus(profile, today);
+  const query = simple(q);
+  // ohne Suche: die nächsten noch nicht auswendigen Suren von hinten als Vorschlag
+  const hits = (query ? SURAS.filter((s) => String(s.n) === query || simple(s.tr).includes(query)) : [...SURAS].reverse().filter((s) => status[s.n - 1].state !== 'auswendig'))
+    .filter((s) => !picked.includes(s.n))
+    .slice(0, query ? 8 : 4);
+  const single = picked.length === 1 ? SURAS[picked[0] - 1] : null;
+
+  const add = (n: number) => {
+    setPicked([...picked, n]);
+    setQ('');
+    setPart(false);
+    setA1(1);
+    setA2(SURAS[n - 1].ayahs);
+  };
+
+  const create = () => {
+    const sorted = [...picked].sort((x, y) => x - y);
+    const layout = cachedLayout(ed);
+    if (single && part && (a1 > 1 || a2 < single.ayahs)) {
+      const r = layout && ayahRange(layout, ed, single.n, a1, a2);
+      if (!r) return toast('Die Seiten sind noch nicht geladen. Bitte gleich noch einmal.');
+      update((p) => upsertPlan(p, { ...newPlan(r, perWeek, wd, today), title: `${single.tr} ${a1}–${a2}` }));
+    } else {
+      // aufeinanderfolgende Suren bilden einen Plan, getrennte je einen eigenen
+      const groups: [number, number][] = [];
+      for (const n of sorted) {
+        const last = groups[groups.length - 1];
+        if (last && last[1] === n - 1) last[1] = n;
+        else groups.push([n, n]);
+      }
+      update((p) => groups.reduce((acc, [x, y]) => upsertPlan(acc, newPlan(suraRange(ed, x, y), perWeek, wd, today)), p));
+    }
+    onDone();
+    setPicked([]);
+  };
+
   return (
-    <div className="weekdots" aria-label="Lernwoche">
-      {Array.from({ length: 7 }, (_, i) => {
-        const d = addDays(startOfWeek, i);
-        const state = taskDone(profile, d, plan.id) ? 'done' : d === today ? 'now' : d < today ? 'missed' : '';
-        return (
-          <div key={d} className={state}>
-            <i>{state === 'done' ? '✓' : i === 5 ? 'P' : i === 6 ? 'V' : ''}</i>
-            <span>{WEEKDAYS_SHORT[(plan.weekday + 1 + i) % 7]}</span>
+    <div className="stack plan-form">
+      {picked.length > 0 && (
+        <div className="picked">
+          {picked.map((n) => (
+            <span key={n}>
+              {SURAS[n - 1].tr}
+              <button type="button" aria-label={`${SURAS[n - 1].tr} entfernen`} onClick={() => setPicked(picked.filter((x) => x !== n))}>
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div>
+        <input
+          id="plan-search"
+          className="field search"
+          inputMode="search"
+          placeholder={picked.length ? 'Weitere Sura hinzufügen' : 'Sura suchen'}
+          aria-label="Sura suchen"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        {(query || picked.length === 0) && (
+          <div className="pick-list">
+            {hits.map((s) => (
+              <button key={s.n} type="button" onClick={() => add(s.n)}>
+                <span className="num">{s.n}</span>
+                <span className="name">{s.tr}</span>
+                <span className="ar">{s.ar}</span>
+                <Icon name="plus" />
+              </button>
+            ))}
+            {query && hits.length === 0 && <p className="small">Keine Sura gefunden.</p>}
           </div>
-        );
-      })}
+        )}
+      </div>
+      {single && single.ayahs > 1 && (
+        <div>
+          {!part ? (
+            <button type="button" className="link-btn" onClick={() => setPart(true)}>
+              Nur bestimmte Ayat
+            </button>
+          ) : (
+            <div className="range-row">
+              <div>
+                <label className="lbl" htmlFor="plan-a1">
+                  Von Ayah
+                </label>
+                <select id="plan-a1" className="field" value={a1} onChange={(e) => (setA1(Number(e.target.value)), Number(e.target.value) > a2 && setA2(Number(e.target.value)))}>
+                  {Array.from({ length: single.ayahs }, (_, i) => i + 1).map((n) => (
+                    <option key={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="lbl" htmlFor="plan-a2">
+                  Bis Ayah
+                </label>
+                <select id="plan-a2" className="field" value={a2} onChange={(e) => (setA2(Number(e.target.value)), Number(e.target.value) < a1 && setA1(Number(e.target.value)))}>
+                  {Array.from({ length: single.ayahs }, (_, i) => i + 1).map((n) => (
+                    <option key={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {picked.length > 0 && (
+        <>
+          <div>
+            <label className="lbl">Seiten pro Woche</label>
+            <div className="chips-row">
+              {PER_WEEK_OPTIONS.map((n) => (
+                <button key={n} type="button" aria-pressed={perWeek === n} onClick={() => setPerWeek(n)}>
+                  {n === 0.5 ? '½' : n}
+                </button>
+              ))}
+            </div>
+          </div>
+          {more ? (
+            <div>
+              <label className="lbl">Vortrag am</label>
+              <div className="chips-row">
+                {WEEK_ORDER.map((d) => (
+                  <button key={d} type="button" aria-label={WEEKDAYS[d]} aria-pressed={wd === d} onClick={() => setWd(d)}>
+                    {WEEKDAYS_SHORT[d]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <button type="button" className="link-btn" onClick={() => setMore(true)}>
+              Vortragstag: {WEEKDAYS[wd]}
+            </button>
+          )}
+          <button type="button" className="btn primary block" onClick={create}>
+            Lernen starten
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -279,6 +415,8 @@ function PlanForm({ plan, onDone }: { plan?: LearnPlan; onDone: () => void }) {
   const current = plan ? (weekLines(ed, plan, weekIndex(plan, today))[0]?.page ?? plan.toPage) : 0;
   const [page, setPage] = useState(current);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // schlicht: nur Sura und Tempo; alles Weitere erst auf Wunsch
+  const [more, setMore] = useState(!!plan);
   if (!profile) return null;
 
   const save = () => {
@@ -310,6 +448,20 @@ function PlanForm({ plan, onDone }: { plan?: LearnPlan; onDone: () => void }) {
 
   return (
     <div className="stack plan-form">
+      {!more ? (
+        <div>
+          <label className="lbl" htmlFor="plan-sura">
+            Sura
+          </label>
+          {suraSelect('plan-sura', s1, (n) => {
+            setS1(n);
+            setS2(n);
+            setBy('sura');
+            setRangeTouched(true);
+          })}
+        </div>
+      ) : (
+        <>
       <Seg<'sura' | 'pages'>
         label="Bereich nach"
         value={by}
@@ -357,8 +509,10 @@ function PlanForm({ plan, onDone }: { plan?: LearnPlan; onDone: () => void }) {
           </div>
         </div>
       )}
+        </>
+      )}
       <div>
-        <label className="lbl">Pro Woche</label>
+        <label className="lbl">Seiten pro Woche</label>
         <div className="chips-row">
           {PER_WEEK_OPTIONS.map((n) => (
             <button key={n} type="button" aria-pressed={perWeek === n} onClick={() => setPerWeek(n)}>
@@ -367,6 +521,8 @@ function PlanForm({ plan, onDone }: { plan?: LearnPlan; onDone: () => void }) {
           ))}
         </div>
       </div>
+      {more && (
+        <>
       <div>
         <label className="lbl">Vortrag am</label>
         <div className="chips-row">
@@ -382,6 +538,13 @@ function PlanForm({ plan, onDone }: { plan?: LearnPlan; onDone: () => void }) {
           <label className="lbl">Diese Woche dran: Seite</label>
           <Stepper value={page} min={plan.fromPage} max={plan.toPage + 1} label="Aktuelle Seite" onChange={setPage} />
         </div>
+      )}
+        </>
+      )}
+      {!more && (
+        <button type="button" className="link-btn" onClick={() => setMore(true)}>
+          Mehr Optionen (mehrere Suren, Seiten, Vortragstag)
+        </button>
       )}
       <button type="button" className="btn primary block" onClick={save}>
         {plan ? 'Speichern' : 'Plan erstellen'}

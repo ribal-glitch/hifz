@@ -23,6 +23,8 @@ export interface LearnPlan {
   start: ISODate;
   /** mitten in der Woche angelegt: ab diesem Tag verteilen sich die Portionen der ersten Woche */
   firstDay?: ISODate;
+  /** eigener Titel, z. B. „Al-Baqarah 1–20“ bei einem Ayah-Bereich */
+  title?: string;
   /** fertig gelernt und weggelegt (die Seiten bleiben in der Wiederholung) */
   archived?: boolean;
 }
@@ -142,6 +144,7 @@ export function planProgress(ed: EditionId, plan: LearnPlan, date: ISODate): { d
 
 /** „Al-ʿAnkabūt“, „Al-ʿAnkabūt 45 – Luqmān 11“ … */
 export function planTitle(ed: EditionId, plan: LearnPlan): string {
+  if (plan.title) return plan.title;
   const [s1, a1] = ayahAt(ed, plan.fromPage, plan.fromLine, 'first');
   const [s2, a2] = ayahAt(ed, plan.toPage, plan.toLine, 'last');
   const whole1 = a1 === 1;

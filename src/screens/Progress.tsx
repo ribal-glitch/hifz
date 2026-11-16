@@ -20,6 +20,7 @@ import {
 } from '../logic/stats';
 import { useStore } from '../store';
 import { Icon, Ring } from '../ui';
+import { Fold } from '../components/Steps';
 import type { ReadTarget } from './Today';
 
 const SURA_LABEL: Record<SuraState, string> = {
@@ -79,11 +80,11 @@ export function ProgressTab({ onOpen, active }: { onOpen: (t: ReadTarget) => voi
 
       <section style={{ textAlign: 'center', padding: '8px 0 4px' }}>
         <div style={{ display: 'grid', placeItems: 'center' }}>
-          <Ring value={shownPct / 100} size={224} stroke={12} label={`${formatDecimal(prog.percent)} Prozent des Qurans auswendig`}>
+          <Ring value={shownPct / 100} size={168} stroke={10} label={`${formatDecimal(prog.percent)} Prozent des Qurans auswendig`}>
             <div>
-              <div className="serif" style={{ fontSize: 58, fontWeight: 500, lineHeight: 1 }}>
+              <div className="serif" style={{ fontSize: 42, fontWeight: 500, lineHeight: 1 }}>
                 {formatDecimal(shownPct)}
-                <span style={{ fontSize: 28 }}> %</span>
+                <span style={{ fontSize: 20 }}> %</span>
               </div>
               <div className="sub" style={{ marginTop: 6 }}>
                 des Qurans
@@ -91,7 +92,7 @@ export function ProgressTab({ onOpen, active }: { onOpen: (t: ReadTarget) => voi
             </div>
           </Ring>
         </div>
-        <div className="serif" style={{ marginTop: 14, fontSize: 22 }}>
+        <div className="serif" style={{ marginTop: 12, fontSize: 18 }}>
           {prog.pages} von 604 Seiten
         </div>
         {next && (
@@ -101,11 +102,6 @@ export function ProgressTab({ onOpen, active }: { onOpen: (t: ReadTarget) => voi
         )}
       </section>
 
-      <GoalCard />
-
-      <div className="ornament" aria-hidden="true">
-        <i />
-      </div>
 
       <div className="cal" aria-label="Kalender der letzten 4 Wochen">
         {[1, 2, 3, 4, 5, 6, 0].map((d) => (
@@ -182,22 +178,9 @@ export function ProgressTab({ onOpen, active }: { onOpen: (t: ReadTarget) => voi
         </span>
       </div>
 
-      <h2 className="section-title">Meilensteine</h2>
-      <div className="milestones">
-        {MILESTONES.map((m) => {
-          const reached = prog.pages >= pagesForMilestone(m.percent);
-          return (
-            <span key={m.percent} className={reached ? 'reached' : ''}>
-              {reached ? '✓ ' : ''}
-              {m.label}
-            </span>
-          );
-        })}
-      </div>
-
-      <h2 className="section-title">Suren</h2>
+      <Fold title="Suren">
       <p className="hint" style={{ marginTop: 0 }}>
-        Tippen: offen → im Dars → auswendig
+        Auf den Status tippen: offen → im Dars → auswendig
       </p>
       <div>
         {suras.map((s) => {
@@ -244,6 +227,24 @@ export function ProgressTab({ onOpen, active }: { onOpen: (t: ReadTarget) => voi
           );
         })}
       </div>
+      </Fold>
+      <Fold title="Hafiz-Ziel">
+        <GoalCard />
+      </Fold>
+      <Fold title="Meilensteine">
+      <div className="milestones">
+        {MILESTONES.map((m) => {
+          const reached = prog.pages >= pagesForMilestone(m.percent);
+          return (
+            <span key={m.percent} className={reached ? 'reached' : ''}>
+              {reached ? '✓ ' : ''}
+              {m.label}
+            </span>
+          );
+        })}
+      </div>
+
+      </Fold>
     </div>
   );
 }
@@ -266,8 +267,7 @@ function GoalCard() {
   }
   const years = daysBetween(today, est.date) / 365.25;
   return (
-    <section className="card" style={{ marginTop: 18 }}>
-      <div className="eyebrow">Hafiz-Ziel</div>
+    <section className="card" style={{ marginTop: 4 }}>
       <div className="serif" style={{ fontSize: 24, lineHeight: 1.25, margin: '4px 0 2px' }}>
         {formatMonthYear(est.date)}
       </div>

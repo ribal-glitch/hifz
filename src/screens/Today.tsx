@@ -3,8 +3,8 @@ import { CoveredPage } from '../components/CoveredPage';
 import { QuizScreen } from '../components/QuizScreen';
 import { ReciteScreen } from '../components/ReciteScreen';
 import { IS_ARTIFACT } from '../platform';
-import { Fold, Step } from '../components/Steps';
-import { formatDayMonth, formatLong } from '../logic/dates';
+import { Fold } from '../components/Steps';
+import { formatLong } from '../logic/dates';
 import {
   cardStatus,
   effectiveBestand,
@@ -13,14 +13,13 @@ import {
   rateFresh,
   ratePage,
   removeFreeReview,
-  toggleFresh,
 } from '../logic/plan';
 import type { QuizItem, Rating } from '../logic/profile';
 import { JUZ_COUNT, PAGE_COUNT, SURAS, juzPages, meta, pageJuz, range, suraName, suraPages, type EditionId } from '../logic/quran';
 import { addQuestion, juzQuestions, newQuestion, rateQuestion } from '../logic/quiz';
 import { streak } from '../logic/stats';
 import { useStore } from '../store';
-import { Icon, Seg } from '../ui';
+import { Icon, Seg, Sheet } from '../ui';
 
 export interface ReadTarget {
   page: number;
@@ -57,15 +56,6 @@ function pageSuras(ed: EditionId, page: number): string {
   const [s1, a1] = meta(ed).pageFirst[page - 1];
   const [s2, a2] = meta(ed).pageLast[page - 1];
   return s1 === s2 ? `${suraName(s1)} ${a1}–${a2}` : `${suraName(s1)} ${a1} – ${suraName(s2)} ${a2}`;
-}
-
-/** Suren eines Seitenblocks: „al-Isrāʾ – al-Kahf“ */
-function blockSuras(ed: EditionId, pages: number[]): string {
-  if (!pages.length) return '';
-  const sorted = [...pages].sort((a, b) => a - b);
-  const s1 = meta(ed).pageFirst[sorted[0] - 1][0];
-  const s2 = meta(ed).pageLast[sorted[sorted.length - 1] - 1][0];
-  return s1 === s2 ? suraName(s1) : `${suraName(s1)} – ${suraName(s2)}`;
 }
 
 /**
@@ -126,7 +116,6 @@ export function Today() {
   /** aufgeklappte Seite, z. B. „f-396“ oder „m-310“ */
   const [openPage, setOpenPage] = useState<string | null>(null);
   if (!profile) return null;
-  const ed = profile.edition;
   const day = profile.days[today];
   const status = cardStatus(profile, today);
   const cards = [status.fresh, status.muraja].filter((v) => v !== null);
@@ -138,7 +127,6 @@ export function Today() {
   // Fortschritt des Tages: frische Seiten und Murājaʿa zusammen
   const allPages = [...new Set([...fresh, ...(muraja ? [...muraja.pages, ...muraja.extra] : [])])];
   const doneN = allPages.filter((p) => day?.ratings[p] || day?.freshDone.includes(p)).length;
-  let stepNo = 0;
   const toggleOpen = (k: string) => setOpenPage((cur) => (cur === k ? null : k));
 
   return (
@@ -162,82 +150,51 @@ export function Today() {
 
       {!hasBestand && <div className="card empty">Noch nichts auswendig eingetragen. Unter „Fortschritt“ kannst du Suren als auswendig markieren.</div>}
 
-      <div className="flow">
-        {fresh.length > 0 && (
-          <Step
-            n={++stepNo}
-            done={status.fresh === true}
-            title="Frisches festigen"
-            sub={blockSuras(ed, fresh)}
-            collapsible
-            onToggle={() =>
-              update((p) => {
-                const allDone = fresh.every((f) => p.days[today]?.freshDone.includes(f));
-                let q = p;
-                for (const f of fresh) if (allDone || !q.days[today]?.freshDone.includes(f)) q = toggleFresh(q, today, f);
-                return q;
-              })
-            }
-            toggleLabel="Alle frischen Seiten erledigt"
-          >
-            <div className="panel">
-              {fresh.map((f) => (
+      {allPages.length > 0 && (
+        <div className="panel review-list">
+          {fresh.length > 0 && <div className="group-label">Frisch gelernt</div>}
+          {fresh.map((f) => (
+            <ReviewPage
+              key={`f-${f}`}
+              page={f}
+              open={openPage === `f-${f}`}
+              onToggle={() => toggleOpen(`f-${f}`)}
+              rating={day?.freshDone.includes(f) ? day.ratings[f] : undefined}
+              done={!!day?.freshDone.includes(f)}
+              onRate={(r) => {
+                update((p) => rateFresh(p, today, f, r));
+                setOpenPage(null);
+              }}
+            />
+          ))}
+          {muraja && muraja.pages.length + muraja.extra.length > 0 && fresh.length > 0 && <div className="group-label">Wiederholung</div>}
+          {muraja &&
+            [...muraja.pages.map((p) => ({ p, extra: false })), ...muraja.extra.map((p) => ({ p, extra: true }))].map(({ p, extra }) => {
+              const prev = profile.pages[p]?.d === today ? profile.pages[p]?.prev : profile.pages[p];
+              const followUp = extra && prev?.r === 'sitzt';
+              return (
                 <ReviewPage
-                  key={f}
-                  page={f}
-                  open={openPage === `f-${f}`}
-                  onToggle={() => toggleOpen(`f-${f}`)}
-                  rating={day?.freshDone.includes(f) ? day.ratings[f] : undefined}
-                  done={!!day?.freshDone.includes(f)}
+                  key={`m-${p}`}
+                  page={p}
+                  open={openPage === `m-${p}`}
+                  onToggle={() => toggleOpen(`m-${p}`)}
+                  rating={day?.ratings[p]}
+                  info={
+                    extra && (
+                      <div className="small" style={{ margin: '2px 0 0 34px' }}>
+                        <span className={`tag ${followUp ? 'accent' : prev?.r === 'fehler' ? 'err' : 'warn'}`}>{followUp ? 'Nachprüfung' : 'Schwachstelle'}</span>
+                      </div>
+                    )
+                  }
                   onRate={(r) => {
-                    update((p) => rateFresh(p, today, f, r));
+                    update((pr) => ratePage(pr, today, p, r));
                     setOpenPage(null);
                   }}
                 />
-              ))}
-            </div>
-          </Step>
-        )}
-
-        {muraja && muraja.pages.length > 0 && (
-          <Step
-            n={++stepNo}
-            done={status.muraja === true}
-            title="Altes wiederholen"
-            sub={blockSuras(ed, [...muraja.pages, ...muraja.extra])}
-            collapsible
-            toggleLabel="Murājaʿa"
-          >
-            <div className="panel">
-              {[...muraja.pages.map((p) => ({ p, extra: false })), ...muraja.extra.map((p) => ({ p, extra: true }))].map(({ p, extra }) => {
-                const prev = profile.pages[p]?.d === today ? profile.pages[p]?.prev : profile.pages[p];
-                const followUp = extra && prev?.r === 'sitzt';
-                return (
-                  <ReviewPage
-                    key={p}
-                    page={p}
-                    open={openPage === `m-${p}`}
-                    onToggle={() => toggleOpen(`m-${p}`)}
-                    rating={day?.ratings[p]}
-                    info={
-                      extra && (
-                        <div className="small" style={{ margin: '2px 0 0 34px' }}>
-                          <span className={`tag ${followUp ? 'accent' : prev?.r === 'fehler' ? 'err' : 'warn'}`}>{followUp ? 'Nachprüfung' : 'Schwachstelle'}</span>
-                          {prev && <span> · {formatDayMonth(prev.d)}</span>}
-                        </div>
-                      )
-                    }
-                    onRate={(r) => {
-                      update((pr) => ratePage(pr, today, p, r));
-                      setOpenPage(null);
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </Step>
-        )}
-      </div>
+              );
+            })}
+        </div>
+      )}
 
       {hasBestand && <QuizButtons />}
       <FreeReviews />
@@ -262,6 +219,7 @@ function QuizButtons() {
   });
   const [quiz, setQuiz] = useState<{ kind: 'mini' | 'juz'; items: QuizItem[] } | null>(null);
   const [recite, setRecite] = useState(false);
+  const [pickJuz, setPickJuz] = useState(false);
   if (!profile) return null;
 
   /** Frage im Tagesprotokoll ablegen und bewerten (Fehler machen die Seite zur Schwachstelle) */
@@ -278,56 +236,43 @@ function QuizButtons() {
   return (
     <section className="quiz-launch">
       <h2 className="section-title">Prüfen</h2>
-      <div className="quiz-list">
+      <div className="quiz-tiles">
         {!IS_ARTIFACT && (
-          <button type="button" className="quiz-row" onClick={() => setRecite(true)}>
-            <span className="quiz-ico warn" aria-hidden="true">
-              <Icon name="mic" />
-            </span>
-            <span className="quiz-text">
-              <b>Rezitieren</b>
-              <small>Die App hört zu und markiert Fehler</small>
-            </span>
-            <span className="quiz-go" aria-hidden="true">
-              <Icon name="prev" />
-            </span>
+          <button type="button" onClick={() => setRecite(true)}>
+            <Icon name="mic" />
+            Rezitieren
           </button>
         )}
-        <button type="button" className="quiz-row" onClick={nextMini}>
-          <span className="quiz-ico sky" aria-hidden="true">
-            <Icon name="quiz" />
-          </span>
-          <span className="quiz-text">
-            <b>Mini-Prüfung</b>
-            <small>Eine Stelle aus deinem Bestand</small>
-          </span>
-          <span className="quiz-go" aria-hidden="true">
-            <Icon name="prev" />
-          </span>
+        <button type="button" onClick={nextMini}>
+          <Icon name="quiz" />
+          Zufällige Stelle
         </button>
-        <div className="quiz-row wrap">
-          <span className="quiz-ico ok" aria-hidden="true">
-            <Icon name="list" />
-          </span>
-          <span className="quiz-text">
-            <b>Juz-Quiz</b>
-            <small>10 Stellen aus einem Juz</small>
-          </span>
-          <span className="quiz-controls">
-          <select className="field" aria-label="Juz" value={juz} onChange={(e) => setJuz(Number(e.target.value))}>
-            {Array.from({ length: JUZ_COUNT }, (_, i) => i + 1).map((j) => (
-              <option key={j} value={j}>
-                Juz {j}
-                {learned(j) ? ' ✓' : ''}
-              </option>
-            ))}
-          </select>
-          <button type="button" className="btn primary" onClick={() => setQuiz({ kind: 'juz', items: juzQuestions(profile, juz, 10) })}>
-            Start
-          </button>
-          </span>
-        </div>
+        <button type="button" onClick={() => setPickJuz(true)}>
+          <Icon name="list" />
+          Juz-Quiz
+        </button>
       </div>
+      {pickJuz && (
+        <Sheet title="Welcher Juz?" onClose={() => setPickJuz(false)}>
+          <div className="juz-grid">
+            {Array.from({ length: JUZ_COUNT }, (_, i) => i + 1).map((j) => (
+              <button
+                key={j}
+                type="button"
+                className={`juz ${learned(j) ? 'full' : 'open'}`}
+                aria-label={`Juz ${j}`}
+                onClick={() => {
+                  setJuz(j);
+                  setPickJuz(false);
+                  setQuiz({ kind: 'juz', items: juzQuestions(profile, j, 10) });
+                }}
+              >
+                <span>{j}</span>
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
       {recite && <ReciteScreen edition={ed} onClose={() => setRecite(false)} />}
       {quiz && (
         <QuizScreen
@@ -365,7 +310,7 @@ function FreeReviews() {
     setSura(0);
   };
   return (
-    <Fold title="Zusätzlich wiederholt">
+    <Fold title="Selbst eintragen">
       <div style={{ marginBottom: 10 }}>
         <Seg<'pages' | 'sura'>
           label="Eintragen nach"

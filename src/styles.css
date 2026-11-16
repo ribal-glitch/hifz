@@ -3968,3 +3968,355 @@ button.quiz-row:active {
   justify-content: center;
   gap: 6px;
 }
+
+/* ---------- Schlicht: kleinere Überschriften, flache Flächen, wenig Rahmen ---------- */
+
+.topbar {
+  min-height: 50px;
+}
+
+.topbar h1 {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+.today-head {
+  margin: 0 0 14px;
+}
+
+.today-head .date {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.today-head .status {
+  font-size: 19px;
+  margin-top: 0;
+}
+
+.section-title {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  margin: 26px 2px 8px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.card {
+  padding: 16px;
+}
+
+.btn {
+  min-height: 46px;
+  font-size: 15px;
+  border-color: var(--border);
+}
+
+.btn.primary {
+  border-color: var(--accent);
+}
+
+.chips-row button {
+  min-height: 40px;
+  font-size: 15px;
+}
+
+.lbl {
+  font-size: 13px;
+}
+
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sky);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.link-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.link-btn.add {
+  margin: 2px 2px 0;
+}
+
+/* Suchfeld mit Lupe */
+.field.search {
+  padding-left: 42px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='m16 16 4.5 4.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 13px center;
+  background-size: 20px;
+}
+
+/* Lesen: „Weiterlesen“ als schmale Zeile */
+.continue {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  margin: 10px 0 12px;
+  padding: 8px 12px 8px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.continue span {
+  flex: none;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.continue b {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.continue svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--faint);
+}
+
+.index-row {
+  min-height: 48px;
+  padding: 9px 0;
+}
+
+/* Lernen: schlichte Karte */
+.plan-card {
+  padding: 14px 16px 16px;
+  border-left: 0;
+}
+
+.plan-card.collapsed {
+  padding: 4px 12px;
+}
+
+.plan-title {
+  font-size: 19px;
+}
+
+.plan-meta {
+  font-size: 14px;
+}
+
+.plan-meta b {
+  color: var(--sky);
+  font-weight: 600;
+}
+
+.plan-bar {
+  height: 4px;
+  margin: 10px 0 12px;
+}
+
+.plan-head .iconbtn {
+  margin: -6px -8px 0 0;
+  color: var(--faint);
+}
+
+.method-pills {
+  display: grid;
+  gap: 6px;
+}
+
+.method-pills button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.method-pills button svg {
+  width: 18px;
+  height: 18px;
+  color: var(--sky);
+}
+
+.method-pills button.on {
+  background: var(--sky-soft);
+  color: var(--sky);
+}
+
+.method-compact .method-inline {
+  margin-top: 10px;
+}
+
+.plan-card .mark-done {
+  margin-top: 10px;
+}
+
+.plan-done {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  min-height: 44px;
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.plan-done svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Neues lernen: gewählte Suren und Trefferliste */
+.picked {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.picked span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px 0 14px;
+  min-height: 40px;
+  border-radius: 999px;
+  background: var(--sky-soft);
+  color: var(--sky);
+  font-weight: 600;
+}
+
+.picked button {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.pick-list {
+  margin-top: 6px;
+}
+
+.pick-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 2px;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  background: none;
+  text-align: left;
+}
+
+.pick-list button:first-child {
+  border-top: 0;
+}
+
+.pick-list .num {
+  width: 28px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.pick-list .name {
+  flex: 1;
+  font-weight: 600;
+}
+
+.pick-list .ar {
+  font-size: 20px;
+  color: var(--muted);
+}
+
+.pick-list svg {
+  width: 20px;
+  height: 20px;
+  color: var(--sky);
+}
+
+/* Wiederholen: eine Liste */
+.review-list {
+  margin-top: 0;
+  padding: 2px 14px;
+}
+
+.group-label {
+  padding: 12px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.group-label + .listrow {
+  border-top: 0;
+}
+
+.group-label:not(:first-child) {
+  border-top: 1px solid var(--rule);
+}
+
+.quiz-tiles {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+}
+
+.quiz-tiles button {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 14px 4px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.quiz-tiles svg {
+  width: 24px;
+  height: 24px;
+  color: var(--sky);
+}
+
+.sheet .juz-grid button.juz {
+  border: 0;
+  font-size: 16px;
+}
+
+.done-line {
+  font-size: 16px;
+  padding: 10px 2px;
+  margin-bottom: 14px;
+}
+
+.fold .section-title {
+  color: var(--text);
+}

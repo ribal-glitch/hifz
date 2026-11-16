@@ -116,7 +116,7 @@ const VIEW_ICON = { listen: 'play', read: 'read', cover: 'reveal' } as const;
  * Liste von Lernschritten: jeder lässt sich abhaken, Hören, Lesen und Prüfen öffnen den Text
  * direkt unter dem Schritt, damit man in „Lernen“ bleibt.
  */
-export function MethodList({ items, onAllDone, stacked }: { items: MethodItem[]; onAllDone?: () => void; stacked?: boolean }) {
+export function MethodList({ items, onAllDone, stacked, compact }: { items: MethodItem[]; onAllDone?: () => void; stacked?: boolean; compact?: boolean }) {
   const { profile, today, update } = useStore();
   const audio = useAudio();
   const [open, setOpen] = useState<string | null>(null);
@@ -144,6 +144,39 @@ export function MethodList({ items, onAllDone, stacked }: { items: MethodItem[];
     update((p) => toggleStep(p, today, id));
     if (nowDone && onAllDone && items.every((it) => it.id === id || done.has(it.id))) onAllDone();
   };
+
+  // schlicht: eine Reihe Knöpfe, der Text öffnet sich darunter
+  if (compact) {
+    const cur = items.map((it) => ({ it, v: it.views[0], key: `${it.id}#0` })).find((x) => x.key === open);
+    return (
+      <div className="method-compact">
+        <div className="method-pills" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
+          {items.map((it) => {
+            const v = it.views[0];
+            const key = `${it.id}#0`;
+            const isOpen = open === key;
+            return (
+              <button key={it.id} type="button" aria-expanded={isOpen} className={isOpen ? 'on' : undefined} onClick={() => v && openView(key, v, isOpen)}>
+                <Icon name={isOpen && v.mode === 'listen' ? 'stop' : VIEW_ICON[v.mode]} />
+                {it.what}
+              </button>
+            );
+          })}
+        </div>
+        {cur && (
+          <div className="method-inline">
+            {cur.v.segs.map((sg) =>
+              cur.v.mode === 'cover' ? (
+                <CoveredPage key={`c-${sg.page}-${sg.from}`} edition={ed} page={sg.page} from={sg.from} />
+              ) : (
+                <CoveredPage key={`${cur.v.mode}-${sg.page}`} edition={ed} page={sg.page} read={cur.v.mode === 'read'} listen={cur.v.mode === 'listen'} hl={[sg.from, sg.to]} />
+              ),
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="panel">
