@@ -3823,7 +3823,11 @@ button.quiz-row:active {
 }
 
 .recite .mline .w.r-open {
-  color: var(--faint);
+  opacity: 0.42;
+}
+
+.recite-switches {
+  margin: 0 10px 6px;
 }
 
 /* das nächste erwartete Wort */

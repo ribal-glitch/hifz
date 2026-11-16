@@ -5,7 +5,8 @@ import type { Rating } from '../logic/profile';
 import { SURAS, suraName, type EditionId } from '../logic/quran';
 import { align, buildIndex, flatten, locate, ratingFor, spokenWords, type FlatWord, type Index, type WordStatus } from '../logic/recite';
 import { useStore } from '../store';
-import { Icon } from '../ui';
+import { Icon, Switch } from '../ui';
+import { tajweedAyah, type Piece } from '../logic/tajweed';
 import { FONT, GAP_EM, MIN_FS, clearWidthCache, fitFontSize } from './mushaf';
 
 // ---------- Spracherkennung des Browsers ----------
@@ -120,6 +121,9 @@ export function ReciteScreen({ edition, hintPage, onClose }: { edition: EditionI
       /* egal */
     }
   };
+  // wie beim Lesen: Tajwīd-Farben und Wortanfänge als Hilfe
+  const [tajweed, setTajweed] = useState(true);
+  const [hint, setHint] = useState(false);
   /** laufender Abschnitt: Position im Quran und ab welchem gesprochenen Wort er gilt */
   const [seg, setSeg] = useState<{ pos: number; from: number } | null>(null);
   /** Ergebnisse früherer Abschnitte (wenn an anderer Stelle weiter rezitiert wurde) */
@@ -342,6 +346,11 @@ export function ReciteScreen({ edition, hintPage, onClose }: { edition: EditionI
 
       {phase !== 'done' ? (
         <>
+          <div className="switch-bar recite-switches" role="group" aria-label="Ansicht">
+            <Switch label="Verdecken" on={cover} onChange={setCover} />
+            <Switch label="Wortanfang" on={cover && hint} onChange={(v) => (setHint(v), v && setCover(true))} />
+            <Switch label="Tajwīd" on={tajweed} onChange={setTajweed} />
+          </div>
           <div className="quiz-stage" ref={box}>
             {data === null && <div className="empty">Seite wird geladen …</div>}
             {data === 'error' && <div className="empty">Die Quran-Daten konnten nicht geladen werden.</div>}
@@ -354,6 +363,8 @@ export function ReciteScreen({ edition, hintPage, onClose }: { edition: EditionI
                 marks={marks}
                 cursor={cursor ?? 0}
                 cover={cover}
+                hint={hint}
+                tajweed={tajweed}
                 width={size.w}
                 height={size.h}
                 fontReady={fontReady}
@@ -397,9 +408,7 @@ export function ReciteScreen({ edition, hintPage, onClose }: { edition: EditionI
             {heard ? heard.split(/\s+/).slice(-9).join(' ') : ' '}
           </div>
           <div className="recite-actions">
-            <button type="button" className={`qbtn${cover ? '' : ' on'}`} aria-pressed={!cover} aria-label="Text mitlesen statt verdecken" onClick={() => setCover(!cover)}>
-              <Icon name={cover ? 'eye' : 'reveal'} />
-            </button>
+            <span />
             {phase === 'listening' ? (
               <button type="button" className="mic-btn live" aria-label="Rezitation beenden" onClick={() => stop(marks.size > 0)}>
                 <Icon name="stop" />
@@ -497,6 +506,8 @@ function RecitePage({
   marks,
   cursor,
   cover,
+  hint,
+  tajweed,
   width,
   height,
   fontReady,
@@ -507,6 +518,9 @@ function RecitePage({
   marks: Map<number, WordStatus>;
   cursor: number;
   cover: boolean;
+  /** beim Verdecken das erste Wort jeder Ayah zeigen */
+  hint: boolean;
+  tajweed: boolean;
   width: number;
   height: number;
   fontReady: boolean;
@@ -515,6 +529,17 @@ function RecitePage({
   const per = height > 0 ? height / lines.length : fitW * 2;
   const fs = Math.max(MIN_FS, Math.min(fitW, per / 1.6));
   const lineH = Math.min(per, fs * 2.2);
+  const tjCache = useMemo(() => new Map<number, Piece[][]>(), [text]);
+  const pieces = (a: number, wi: number): Piece[] | null => {
+    const words = text.ayahs[a];
+    if (wi >= words.length - 1) return null;
+    let v = tjCache.get(a);
+    if (!v) {
+      v = tajweedAyah(words.slice(0, -1));
+      tjCache.set(a, v);
+    }
+    return v[wi];
+  };
   return (
     <div className="mushaf quiz-page" style={{ fontSize: fs }}>
       {lines.map((line, i) => {
@@ -553,10 +578,22 @@ function RecitePage({
                     // die Ayah-Nummer erscheint zusammen mit dem letzten Wort der Ayah
                     const pos = first[a] + Math.min(wi, last - 1);
                     const st = marks.get(pos);
-                    const cls = st ? (st === 'ok' ? 'w r-ok' : 'w r-err') : pos < cursor ? 'w r-ok' : pos === cursor ? `w r-next${cover ? ' masked' : ''}` : cover ? 'w masked' : 'w r-open';
+                    const hidden = cover && !(hint && (wi === 0 || wi === last));
+                    const cls = st
+                      ? st === 'ok'
+                        ? 'w r-ok'
+                        : 'w r-err'
+                      : pos < cursor
+                        ? 'w r-ok'
+                        : pos === cursor
+                          ? `w r-next${hidden ? ' masked' : ''}`
+                          : hidden
+                            ? 'w masked'
+                            : 'w r-open';
+                    const tj = tajweed && !cls.includes('masked') && !cls.includes('r-err') ? pieces(a, wi) : null;
                     return (
                       <span key={`${a}-${wi}`} className={cls}>
-                        {w}
+                        {tj ? tj.map((p, pi) => (p.c ? <span key={pi} className={`tj-${p.c}`}>{p.t}</span> : p.t)) : w}
                       </span>
                     );
                   }),
