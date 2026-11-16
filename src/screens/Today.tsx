@@ -1,6 +1,8 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { CoveredPage } from '../components/CoveredPage';
 import { QuizScreen } from '../components/QuizScreen';
+import { ReciteScreen } from '../components/ReciteScreen';
+import { IS_ARTIFACT } from '../platform';
 import { Fold, Step } from '../components/Steps';
 import { formatDayMonth, formatLong } from '../logic/dates';
 import {
@@ -259,6 +261,7 @@ function QuizButtons() {
     return best;
   });
   const [quiz, setQuiz] = useState<{ kind: 'mini' | 'juz'; items: QuizItem[] } | null>(null);
+  const [recite, setRecite] = useState(false);
   if (!profile) return null;
 
   /** Frage im Tagesprotokoll ablegen und bewerten (Fehler machen die Seite zur Schwachstelle) */
@@ -276,6 +279,20 @@ function QuizButtons() {
     <section className="quiz-launch">
       <h2 className="section-title">Prüfen</h2>
       <div className="quiz-list">
+        {!IS_ARTIFACT && (
+          <button type="button" className="quiz-row" onClick={() => setRecite(true)}>
+            <span className="quiz-ico warn" aria-hidden="true">
+              <Icon name="mic" />
+            </span>
+            <span className="quiz-text">
+              <b>Rezitieren</b>
+              <small>Die App hört zu und markiert Fehler</small>
+            </span>
+            <span className="quiz-go" aria-hidden="true">
+              <Icon name="prev" />
+            </span>
+          </button>
+        )}
         <button type="button" className="quiz-row" onClick={nextMini}>
           <span className="quiz-ico sky" aria-hidden="true">
             <Icon name="quiz" />
@@ -311,6 +328,7 @@ function QuizButtons() {
           </span>
         </div>
       </div>
+      {recite && <ReciteScreen edition={ed} onClose={() => setRecite(false)} />}
       {quiz && (
         <QuizScreen
           edition={ed}

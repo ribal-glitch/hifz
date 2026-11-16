@@ -34,7 +34,8 @@ export function Icon({
     | 'close'
     | 'quiz'
     | 'trash'
-    | 'hint';
+    | 'hint'
+    | 'mic';
 }) {
   const p = {
     fill: 'none',
@@ -231,6 +232,13 @@ export function Icon({
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4.5 7h15M9.5 7V5h5v2M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5" {...p} />
+        </svg>
+      );
+    case 'mic':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="9" y="3" width="6" height="11" rx="3" {...p} />
+          <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" {...p} />
         </svg>
       );
     case 'hint':

@@ -3720,3 +3720,223 @@ button.quiz-row:active {
     bottom: 86px;
   }
 }
+
+/* ---------- Rezitieren mit Mikrofon ---------- */
+
+.quiz-ico.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.recite-count {
+  min-width: 34px;
+  height: 34px;
+  margin-right: 6px;
+  padding: 0 8px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.recite-count.err {
+  background: var(--err-soft);
+  color: var(--err);
+}
+
+.recite-intro {
+  height: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 0 18px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.recite-pulse {
+  width: 84px;
+  height: 84px;
+  margin-bottom: 12px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--err-soft);
+  color: var(--err);
+  animation: recite-pulse 1.4s ease-in-out infinite;
+}
+
+.recite-pulse svg {
+  width: 36px;
+  height: 36px;
+}
+
+@keyframes recite-pulse {
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recite-pulse {
+    animation: none;
+  }
+}
+
+.recite .mline .w.r-ok {
+  color: var(--text);
+}
+
+.recite .mline .w.r-err {
+  color: var(--err);
+  background: var(--err-soft);
+  border-radius: 4px;
+}
+
+.recite .mline .w.r-open {
+  color: var(--faint);
+}
+
+/* das nächste erwartete Wort */
+.recite .mline .w.r-next {
+  box-shadow: 0 2px 0 var(--sky);
+}
+
+.recite .mline .w.r-next.masked {
+  background: var(--sky-soft);
+}
+
+.recite-heard {
+  margin: 4px 14px 0;
+  min-height: 26px;
+  font-family: 'KFGQPC Hafs', serif;
+  font-size: 17px;
+  line-height: 26px;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.recite-error {
+  margin: 4px 14px 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--err-soft);
+  color: var(--err);
+  font-size: 14px;
+  text-align: center;
+}
+
+.recite-actions {
+  display: grid;
+  grid-template-columns: 58px 1fr 58px;
+  align-items: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 8px 18px 14px;
+}
+
+.recite-actions .qbtn {
+  width: 58px;
+}
+
+.recite-actions .qbtn.on {
+  background: var(--sky-soft);
+  color: var(--sky);
+  border-color: transparent;
+}
+
+.recite-actions .qbtn:disabled {
+  opacity: 0.4;
+}
+
+.mic-btn {
+  width: 76px;
+  height: 76px;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--shadow);
+}
+
+.mic-btn svg {
+  width: 32px;
+  height: 32px;
+}
+
+.mic-btn.live {
+  background: var(--err);
+  color: #fff;
+  box-shadow: 0 0 0 8px var(--err-soft);
+}
+
+.mic-btn:disabled {
+  opacity: 0.4;
+}
+
+.recite-result {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  max-width: 460px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 12px 20px 24px;
+}
+
+.recite-range {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+.recite-errors {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.recite-errors li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.recite-errors li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.recite-errors .ar {
+  font-size: 24px;
+  line-height: 1.5;
+  min-width: 70px;
+  color: var(--err);
+}
+
+.recite-errors li span:nth-child(2) {
+  flex: 1;
+  color: var(--muted);
+}
+
+.recite-pages {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
