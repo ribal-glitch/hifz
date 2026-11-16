@@ -34,6 +34,23 @@ export function App() {
   /** Eine Mushaf-Seite ist geöffnet: am Handy Vollbild nur mit dem Text */
   const [reading, setReading] = useState(false);
   const slides = useRef<HTMLDivElement>(null);
+  /** Tab-Leiste: verschwindet beim Herunterscrollen, kommt beim Hochscrollen (oder Seitenwechsel) wieder */
+  const [navHidden, setNavHidden] = useState(false);
+  const lastTop = useRef(0);
+  const onSlideScroll = (e: React.UIEvent<HTMLElement>) => {
+    const el = e.currentTarget;
+    const top = el.scrollTop;
+    const d = top - lastTop.current;
+    if (Math.abs(d) < 6) return;
+    lastTop.current = top;
+    // ganz oben und ganz unten (letzter Inhalt soll frei stehen) ist die Leiste da
+    if (top < 24 || d < 0 || top + el.clientHeight >= el.scrollHeight - 8) setNavHidden(false);
+    else setNavHidden(true);
+  };
+  useEffect(() => {
+    setNavHidden(false);
+    lastTop.current = slides.current?.children[active]?.scrollTop ?? 0;
+  }, [active]);
 
   const go = useCallback((i: number, smooth = true) => {
     const el = slides.current;
@@ -85,7 +102,7 @@ export function App() {
       ) : !profile ? (
         <Who />
       ) : (
-        <div className={`app${audio.state ? ' has-player' : ''}${reading && active === 0 ? ' reading' : ''}`}>
+        <div className={`app${audio.state ? ' has-player' : ''}${reading && active === 0 ? ' reading' : ''}${navHidden ? ' nav-hidden' : ''}`}>
           <header className="topbar">
             <h1>{SLIDES[active]?.label}</h1>
             <button type="button" className="avatar-btn" onClick={() => setSettings(true)} aria-label="Einstellungen">
@@ -94,22 +111,22 @@ export function App() {
           </header>
 
           <div className="slides" ref={slides} onScroll={onScroll}>
-            <section className="slide" aria-label="Lesen" aria-hidden={active !== 0}>
+            <section className="slide" onScroll={onSlideScroll} aria-label="Lesen" aria-hidden={active !== 0}>
               <div className="content">
                 <Read target={target} onTargetUsed={targetUsed} onReading={setReading} />
               </div>
             </section>
-            <section className="slide" aria-label="Lernen" aria-hidden={active !== 1}>
+            <section className="slide" onScroll={onSlideScroll} aria-label="Lernen" aria-hidden={active !== 1}>
               <div className="content">
                 <Learn />
               </div>
             </section>
-            <section className="slide" aria-label="Wiederholen" aria-hidden={active !== 2}>
+            <section className="slide" onScroll={onSlideScroll} aria-label="Wiederholen" aria-hidden={active !== 2}>
               <div className="content">
                 <Today />
               </div>
             </section>
-            <section className="slide" aria-label="Fortschritt" aria-hidden={active !== 3}>
+            <section className="slide" onScroll={onSlideScroll} aria-label="Fortschritt" aria-hidden={active !== 3}>
               <div className="content">
                 <ProgressTab onOpen={open} active={active === 3} />
               </div>

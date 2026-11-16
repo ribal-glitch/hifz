@@ -3673,3 +3673,50 @@ button.quiz-row:active {
 .quiz-controls .field {
   flex: 1;
 }
+
+/* Am Handy liegt die Tab-Leiste über dem Inhalt und gleitet beim Herunterscrollen weg */
+@media (max-width: 760px) {
+  .app {
+    position: relative;
+  }
+
+  .tabbar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transition: transform 0.25s ease-out;
+  }
+
+  .app.nav-hidden .tabbar {
+    transform: translateY(100%);
+  }
+
+  .app .slide .content {
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 32px);
+  }
+
+  .app.has-player .slide .content {
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 100px);
+  }
+
+  .player,
+  .ayah-bar,
+  .toast {
+    transition: bottom 0.25s ease-out;
+  }
+
+  .app.nav-hidden .player,
+  .app.nav-hidden .ayah-bar {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  }
+
+  html.guest .app .slide .content {
+    padding-bottom: calc(var(--tabbar-h) + 110px);
+  }
+
+  html.guest .app.nav-hidden .player,
+  html.guest .app.nav-hidden .ayah-bar {
+    bottom: 86px;
+  }
+}
