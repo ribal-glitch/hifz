@@ -34,23 +34,15 @@ export function App() {
   /** Eine Mushaf-Seite ist geöffnet: am Handy Vollbild nur mit dem Text */
   const [reading, setReading] = useState(false);
   const slides = useRef<HTMLDivElement>(null);
-  /** Tab-Leiste: verschwindet beim Herunterscrollen, kommt beim Hochscrollen (oder Seitenwechsel) wieder */
-  const [navHidden, setNavHidden] = useState(false);
-  const lastTop = useRef(0);
-  const onSlideScroll = (e: React.UIEvent<HTMLElement>) => {
-    const el = e.currentTarget;
-    const top = el.scrollTop;
-    const d = top - lastTop.current;
-    if (Math.abs(d) < 6) return;
-    lastTop.current = top;
-    // ganz oben und ganz unten (letzter Inhalt soll frei stehen) ist die Leiste da
-    if (top < 24 || d < 0 || top + el.clientHeight >= el.scrollHeight - 8) setNavHidden(false);
-    else setNavHidden(true);
-  };
-  useEffect(() => {
+  /** Tab-Leiste am Handy: nur zu sehen, während man die Seite wechselt (Wischen oder Tipp auf den Titel) */
+  const [navHidden, setNavHidden] = useState(true);
+  const navTimer = useRef<number | undefined>(undefined);
+  const showNav = useCallback((ms = 2200) => {
     setNavHidden(false);
-    lastTop.current = slides.current?.children[active]?.scrollTop ?? 0;
-  }, [active]);
+    window.clearTimeout(navTimer.current);
+    navTimer.current = window.setTimeout(() => setNavHidden(true), ms);
+  }, []);
+  useEffect(() => () => window.clearTimeout(navTimer.current), []);
 
   const go = useCallback((i: number, smooth = true) => {
     const el = slides.current;
@@ -89,6 +81,8 @@ export function App() {
   const onScroll = () => {
     const el = slides.current;
     if (!el || !el.clientWidth) return;
+    // seitliches Wischen: Leiste kurz zeigen
+    if (Math.abs(el.scrollLeft - active * el.clientWidth) > 12) showNav();
     const i = Math.round(el.scrollLeft / el.clientWidth);
     if (i !== active) setActive(i);
   };
@@ -104,29 +98,34 @@ export function App() {
       ) : (
         <div className={`app${audio.state ? ' has-player' : ''}${reading && active === 0 ? ' reading' : ''}${navHidden ? ' nav-hidden' : ''}`}>
           <header className="topbar">
-            <h1>{SLIDES[active]?.label}</h1>
+            <h1>
+              <button type="button" className="title-btn" aria-label={`${SLIDES[active]?.label} – Bereich wechseln`} aria-expanded={!navHidden} onClick={() => (navHidden ? showNav(5000) : setNavHidden(true))}>
+                {SLIDES[active]?.label}
+                <span className="chev" aria-hidden="true" />
+              </button>
+            </h1>
             <button type="button" className="avatar-btn" onClick={() => setSettings(true)} aria-label="Einstellungen">
               <Avatar name={profile.name} color={profile.color} size={38} />
             </button>
           </header>
 
           <div className="slides" ref={slides} onScroll={onScroll}>
-            <section className="slide" onScroll={onSlideScroll} aria-label="Lesen" aria-hidden={active !== 0}>
+            <section className="slide" aria-label="Lesen" aria-hidden={active !== 0}>
               <div className="content">
                 <Read target={target} onTargetUsed={targetUsed} onReading={setReading} />
               </div>
             </section>
-            <section className="slide" onScroll={onSlideScroll} aria-label="Lernen" aria-hidden={active !== 1}>
+            <section className="slide" aria-label="Lernen" aria-hidden={active !== 1}>
               <div className="content">
                 <Learn />
               </div>
             </section>
-            <section className="slide" onScroll={onSlideScroll} aria-label="Wiederholen" aria-hidden={active !== 2}>
+            <section className="slide" aria-label="Wiederholen" aria-hidden={active !== 2}>
               <div className="content">
                 <Today />
               </div>
             </section>
-            <section className="slide" onScroll={onSlideScroll} aria-label="Fortschritt" aria-hidden={active !== 3}>
+            <section className="slide" aria-label="Fortschritt" aria-hidden={active !== 3}>
               <div className="content">
                 <ProgressTab onOpen={open} active={active === 3} />
               </div>
@@ -166,7 +165,15 @@ export function App() {
 
           <nav className="tabbar" aria-label="Bereiche">
             {SLIDES.map((s, i) => (
-              <button key={s.id} type="button" aria-current={active === i ? 'page' : undefined} onClick={() => go(i)}>
+              <button
+                key={s.id}
+                type="button"
+                aria-current={active === i ? 'page' : undefined}
+                onClick={() => {
+                  go(i);
+                  showNav(1200);
+                }}
+              >
                 <Icon name={s.icon} />
                 {s.label}
               </button>

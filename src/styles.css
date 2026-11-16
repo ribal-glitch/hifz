@@ -3674,10 +3674,32 @@ button.quiz-row:active {
   flex: 1;
 }
 
-/* Am Handy liegt die Tab-Leiste über dem Inhalt und gleitet beim Herunterscrollen weg */
+/* Am Handy ist die Tab-Leiste nur beim Seitenwechsel zu sehen (Wischen oder Tipp auf den Titel) */
+.title-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
+.title-btn .chev {
+  display: none;
+}
+
 @media (max-width: 760px) {
   .app {
     position: relative;
+  }
+
+  .title-btn .chev {
+    display: inline-block;
+    opacity: 0.45;
   }
 
   .tabbar {
@@ -3686,18 +3708,20 @@ button.quiz-row:active {
     right: 0;
     bottom: 0;
     transition: transform 0.25s ease-out;
+    box-shadow: 0 -8px 24px rgb(0 0 0 / 0.08);
   }
 
   .app.nav-hidden .tabbar {
-    transform: translateY(100%);
+    transform: translateY(110%);
+    box-shadow: none;
   }
 
   .app .slide .content {
-    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 32px);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px);
   }
 
   .app.has-player .slide .content {
-    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 100px);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 100px);
   }
 
   .player,
@@ -3712,7 +3736,7 @@ button.quiz-row:active {
   }
 
   html.guest .app .slide .content {
-    padding-bottom: calc(var(--tabbar-h) + 110px);
+    padding-bottom: 110px;
   }
 
   html.guest .app.nav-hidden .player,

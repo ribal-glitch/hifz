@@ -104,7 +104,22 @@ export function ReciteScreen({ edition, hintPage, onClose }: { edition: EditionI
   const [finalText, setFinalText] = useState('');
   const [interim, setInterim] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [cover, setCover] = useState(true);
+  // Standard: die Mushaf-Seite ist zu sehen; Verdecken lässt sich einschalten und bleibt gemerkt
+  const [cover, setCoverState] = useState(() => {
+    try {
+      return localStorage.getItem('hifz:reciteCover') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const setCover = (v: boolean) => {
+    setCoverState(v);
+    try {
+      localStorage.setItem('hifz:reciteCover', v ? '1' : '0');
+    } catch {
+      /* egal */
+    }
+  };
   /** laufender Abschnitt: Position im Quran und ab welchem gesprochenen Wort er gilt */
   const [seg, setSeg] = useState<{ pos: number; from: number } | null>(null);
   /** Ergebnisse früherer Abschnitte (wenn an anderer Stelle weiter rezitiert wurde) */
@@ -150,7 +165,12 @@ export function ReciteScreen({ edition, hintPage, onClose }: { edition: EditionI
     if (seg && current) current.status.forEach((s, i) => m.set(seg.pos + i, s));
     return m;
   }, [frozen, seg, current]);
-  const cursor = seg && current ? seg.pos + current.reached : null;
+  // noch nicht bestätigte Wörter (während des Sprechens) rücken die Stelle schon vor, Fehler zählen erst danach
+  const liveReach = useMemo(() => {
+    if (!c || !seg || !interim.trim()) return 0;
+    return align(c.flat, seg.pos, [...words.slice(seg.from), ...spokenWords(interim)]).reached;
+  }, [c, seg, words, interim]);
+  const cursor = seg && current ? seg.pos + Math.max(current.reached, liveReach) : null;
   const page = pages && cursor !== null ? pages[Math.max(0, Math.min(pages.length - 1, cursor === seg!.pos ? cursor : cursor - 1))] : (hintPage ?? null);
 
   // ---------- Mikrofon ----------
@@ -533,7 +553,7 @@ function RecitePage({
                     // die Ayah-Nummer erscheint zusammen mit dem letzten Wort der Ayah
                     const pos = first[a] + Math.min(wi, last - 1);
                     const st = marks.get(pos);
-                    const cls = st ? (st === 'ok' ? 'w r-ok' : 'w r-err') : pos === cursor ? `w r-next${cover ? ' masked' : ''}` : cover ? 'w masked' : 'w r-open';
+                    const cls = st ? (st === 'ok' ? 'w r-ok' : 'w r-err') : pos < cursor ? 'w r-ok' : pos === cursor ? `w r-next${cover ? ' masked' : ''}` : cover ? 'w masked' : 'w r-open';
                     return (
                       <span key={`${a}-${wi}`} className={cls}>
                         {w}
