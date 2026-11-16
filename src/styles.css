@@ -10,31 +10,32 @@
  * zarte Pastelltöne: Mint (sitzt/auswendig), Himmelblau (Markierung, Dars), Sand, Rosé.
  */
 :root {
-  --bg: #f1f1f0;
-  --surface: #ffffff;
-  --surface-2: #f4f4f3;
-  --track: #e7e7e5;
-  --text: #151515;
-  --muted: #6b6b6b;
-  --faint: #a3a3a3;
-  --border: #e1e1df;
-  --rule: #ececea;
-  --accent: #151515;
-  --accent-ink: #ffffff;
-  --accent-soft: #e6effa;
+  --bg: #f6f2e8;
+  --surface: #fffdf8;
+  --surface-2: #f2ede1;
+  --track: #e7e0d0;
+  --text: #1b2620;
+  --muted: #687065;
+  --faint: #a4a696;
+  --border: #e0d8c5;
+  --rule: #ece6d7;
+  --accent: #1e4d3b;
+  --accent-ink: #fbf7ea;
+  --accent-soft: #e3ede2;
   /* zarte Linie für Rahmen (früher Gold) */
-  --gold: #c5d5e8;
+  --gold: #b8975a;
   --ok: #2d6a41;
   --ok-soft: #e2f1e4;
-  --sky: #2c5b8c;
-  --sky-soft: #e6effa;
+  --sky: #226047;
+  --sky-soft: #e3ede2;
   --warn: #8a5a00;
   --warn-soft: #fbf0d6;
   --err: #b03a2e;
   --err-soft: #fbe4e1;
-  --page: #ffffff;
-  --radius: 20px;
-  --radius-sm: 14px;
+  --page: #fffdf8;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --pill: 8px;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 20px rgb(0 0 0 / 0.05);
   --tabbar-h: 62px;
   /* moderne Grotesk für Überschriften und Text; ʿ und ʾ kommen aus der Systemschrift */
@@ -45,56 +46,56 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #0f0f10;
-    --surface: #1a1a1c;
-    --surface-2: #222225;
-    --track: #2c2c30;
-    --text: #f2f2f2;
-    --muted: #a3a3a6;
-    --faint: #6d6d72;
-    --border: #2f2f33;
-    --rule: #26262a;
-    --accent: #f2f2f2;
-    --accent-ink: #111111;
-    --accent-soft: #1f2a39;
-    --gold: #34465c;
+    --bg: #0d1411;
+    --surface: #151e1a;
+    --surface-2: #1b2621;
+    --track: #27342d;
+    --text: #ece7d8;
+    --muted: #a2a898;
+    --faint: #6a7267;
+    --border: #2a372f;
+    --rule: #212c26;
+    --accent: #d9c084;
+    --accent-ink: #16130a;
+    --accent-soft: #1c2b24;
+    --gold: #8f7843;
     --ok: #86d3a0;
     --ok-soft: #1b3124;
-    --sky: #93bbea;
-    --sky-soft: #1f2a39;
+    --sky: #8fcfab;
+    --sky-soft: #1a2c23;
     --warn: #e3b45c;
     --warn-soft: #362c16;
     --err: #f08b7f;
     --err-soft: #3a2220;
-    --page: #161618;
+    --page: #121a16;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
     color-scheme: dark;
   }
 }
 
 :root[data-theme='dark'] {
-  --bg: #0f0f10;
-  --surface: #1a1a1c;
-  --surface-2: #222225;
-  --track: #2c2c30;
-  --text: #f2f2f2;
-  --muted: #a3a3a6;
-  --faint: #6d6d72;
-  --border: #2f2f33;
-  --rule: #26262a;
-  --accent: #f2f2f2;
-  --accent-ink: #111111;
-  --accent-soft: #1f2a39;
-  --gold: #34465c;
+  --bg: #0d1411;
+  --surface: #151e1a;
+  --surface-2: #1b2621;
+  --track: #27342d;
+  --text: #ece7d8;
+  --muted: #a2a898;
+  --faint: #6a7267;
+  --border: #2a372f;
+  --rule: #212c26;
+  --accent: #d9c084;
+  --accent-ink: #16130a;
+  --accent-soft: #1c2b24;
+  --gold: #8f7843;
   --ok: #86d3a0;
   --ok-soft: #1b3124;
-  --sky: #93bbea;
-  --sky-soft: #1f2a39;
+  --sky: #8fcfab;
+  --sky-soft: #1a2c23;
   --warn: #e3b45c;
   --warn-soft: #362c16;
   --err: #f08b7f;
   --err-soft: #3a2220;
-  --page: #161618;
+  --page: #121a16;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
   color-scheme: dark;
 }
@@ -306,7 +307,7 @@ html.artifact .tabbar {
   height: 24px;
   box-sizing: content-box;
   padding: 4px 18px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   transition: background 0.2s ease-out;
 }
 
@@ -387,7 +388,7 @@ html.artifact .tabbar {
 
 .btn {
   min-height: 48px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   border: 1px solid var(--text);
   background: var(--surface);
   padding: 0 20px;
@@ -569,7 +570,7 @@ html.artifact .tabbar {
 /* Segmentierte Auswahl */
 .seg {
   display: flex;
-  border-radius: 999px;
+  border-radius: var(--pill);
   padding: 4px;
   gap: 4px;
   background: var(--track);
@@ -579,7 +580,7 @@ html.artifact .tabbar {
   flex: 1;
   min-height: 42px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: transparent;
   font-weight: 600;
   font-size: 15px;
@@ -603,7 +604,7 @@ html.artifact .tabbar {
 
 .rate button {
   min-height: 48px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   border: 1px solid var(--border);
   background: var(--surface);
   font-weight: 600;
@@ -752,7 +753,7 @@ label.lbl {
   background: var(--text);
   color: var(--bg);
   padding: 12px 20px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   font-weight: 600;
   z-index: 60;
   animation: fade 0.2s;
@@ -1752,7 +1753,7 @@ label.lbl {
 .chips-row button {
   min-height: 46px;
   min-width: 52px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   border: 1px solid var(--border);
   background: var(--surface);
   font-weight: 600;
@@ -1865,7 +1866,7 @@ pre.summary {
   align-items: center;
   gap: 4px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--pill);
   padding: 2px 2px 2px 12px;
   background: var(--surface);
   font-size: 14.5px;
@@ -2501,7 +2502,7 @@ a.btn.primary {
   bottom: 14px;
   transform: translateX(-50%);
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: var(--text);
   color: var(--bg);
   font-size: 14px;
@@ -2839,7 +2840,7 @@ a.btn.primary {
   align-items: baseline;
   gap: 8px;
   padding: 7px 14px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: var(--sky-soft);
   color: var(--sky);
   font-size: 17px;
@@ -3539,7 +3540,7 @@ html.guest .who {
   right: 0;
   margin: 0;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: var(--surface);
   box-shadow: var(--shadow);
   font-size: 14px;
@@ -3757,7 +3758,7 @@ button.quiz-row:active {
   height: 34px;
   margin-right: 6px;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   display: grid;
   place-items: center;
   background: var(--ok-soft);
@@ -4198,7 +4199,7 @@ button.quiz-row:active {
   gap: 2px;
   padding: 0 4px 0 14px;
   min-height: 40px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: var(--sky-soft);
   color: var(--sky);
   font-weight: 600;
@@ -4319,4 +4320,138 @@ button.quiz-row:active {
 
 .fold .section-title {
   color: var(--text);
+}
+
+
+/* ---------- Islamische Anmutung: Pergament, tiefes Grün, feines Gold, eckigere Formen ---------- */
+
+.iconbtn,
+.backbtn,
+.avatar,
+.check,
+.cal .d,
+.color-row button,
+.review-head .rstate,
+.done-dot,
+.tile-icon {
+  border-radius: 8px;
+}
+
+.mic-btn,
+.recite-pulse {
+  border-radius: 20px;
+}
+
+.seg {
+  padding: 3px;
+}
+
+.seg button {
+  border-radius: 6px;
+}
+
+.tabbar svg {
+  border-radius: 8px;
+}
+
+.method-pills button,
+.quiz-tiles button {
+  border-radius: 8px;
+}
+
+.btn.primary,
+.chips-row button[aria-pressed='true'] {
+  box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.12);
+}
+
+/* Sura-Nummer im achtzackigen Stern (Rubʿ al-Ḥizb) */
+.index-row .num,
+.pick-list .num {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.index-row .num::before,
+.index-row .num::after,
+.pick-list .num::before,
+.pick-list .num::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 1px solid var(--gold);
+  border-radius: 2px;
+}
+
+.index-row .num::after,
+.pick-list .num::after {
+  transform: rotate(45deg);
+}
+
+.index-row {
+  align-items: center;
+}
+
+.index-row .ar,
+.pick-list .ar {
+  color: var(--accent);
+}
+
+/* Sura-Kopf im Mushaf: goldener Rahmen wie ein Schmuckband */
+.sura-frame {
+  background: var(--accent-soft);
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 3px var(--page), inset 0 0 0 4px var(--gold);
+}
+
+/* feine goldene Linie mit Raute unter dem Kopf */
+.today-head {
+  padding-bottom: 14px;
+  background:
+    linear-gradient(var(--gold), var(--gold)) left bottom / calc(50% - 12px) 1px no-repeat,
+    linear-gradient(var(--gold), var(--gold)) right bottom / calc(50% - 12px) 1px no-repeat;
+  position: relative;
+}
+
+.today-head::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  background: var(--gold);
+  transform: rotate(45deg);
+}
+
+.today-head .hijri {
+  font-size: 13px;
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.day-bar {
+  margin-bottom: 4px;
+}
+
+.ring-val {
+  stroke: var(--accent);
+}
+
+.plan-bar i {
+  background: var(--gold);
+}
+
+.title-btn {
+  color: var(--accent);
 }

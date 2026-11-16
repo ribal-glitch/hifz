@@ -4,7 +4,7 @@ import { QuizScreen } from '../components/QuizScreen';
 import { ReciteScreen } from '../components/ReciteScreen';
 import { IS_ARTIFACT } from '../platform';
 import { Fold } from '../components/Steps';
-import { formatLong } from '../logic/dates';
+import { formatHijri, formatLong } from '../logic/dates';
 import {
   cardStatus,
   effectiveBestand,
@@ -133,6 +133,7 @@ export function Today() {
     <div>
       <header className="today-head">
         <div className="date">{formatLong(today)}</div>
+        {formatHijri(today) && <div className="hijri">{formatHijri(today)}</div>}
         <div className="status">{cards.length === 0 ? 'Noch nichts geplant' : partDone ? 'Alles wiederholt' : `${doneN} von ${allPages.length} Seiten`}</div>
         {cards.length > 0 && (
           <div className="day-bar" role="progressbar" aria-valuemin={0} aria-valuemax={allPages.length} aria-valuenow={doneN} aria-label="Heute wiederholt">

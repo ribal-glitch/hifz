@@ -3,7 +3,7 @@ import { ayahRangeLabel, ayahsForLines } from '../audio';
 import { MethodList, type MethodItem } from '../components/Steps';
 import { cachedLayout, useLayoutReady, type LayoutData } from '../data/quranData';
 import { SURA_AYAH_START } from '../data/meta.generated';
-import { formatLong, WEEKDAYS, WEEKDAYS_SHORT } from '../logic/dates';
+import { formatLong, formatHijri, WEEKDAYS, WEEKDAYS_SHORT } from '../logic/dates';
 import {
   PER_WEEK_OPTIONS,
   newPlan,
@@ -91,8 +91,9 @@ export function Learn() {
     <div>
       <header className="today-head">
         <div className="date">{formatLong(today)}</div>
+        {formatHijri(today) && <div className="hijri">{formatHijri(today)}</div>}
         <div className="status">
-          {active.length === 0 ? 'Was möchtest du lernen?' : tasks.length && doneCount === tasks.length ? 'Heute gelernt' : 'Heute'}
+          {active.length === 0 ? 'Was möchtest du lernen?' : tasks.length && doneCount === tasks.length ? 'Heute gelernt – bārak Allāhu fīk' : `As-salāmu ʿalaykum, ${profile.name}`}
         </div>
       </header>
 

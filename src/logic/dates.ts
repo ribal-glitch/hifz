@@ -80,3 +80,17 @@ export function formatMonthYear(s: ISODate): string {
   const d = parseISO(s);
   return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
+
+/** Islamisches Datum (Umm-al-Qurā-Kalender), z. B. „26. Dschumada I 1448“; leer, wenn der Browser es nicht kann. */
+export function formatHijri(s: ISODate): string {
+  try {
+    const parts = new Intl.DateTimeFormat('de-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' }).formatToParts(parseISO(s));
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+    const year = get('year');
+    // manche Browser fallen still auf den gregorianischen Kalender zurück
+    if (!year || Number(year) > 1700) return '';
+    return `${get('day')}. ${get('month')} ${year}`;
+  } catch {
+    return '';
+  }
+}
