@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { learnedPlanPages, newPlan, planFinished, planTask, planTitle, suraRange } from './learn';
+import { learnedPlanPages, newPlan, pageRange, planFinished, planSuras, planTask, planTitle, suraRange } from './learn';
 import { archivePlan, effectiveBestand, learnTasks, upsertPlan } from './plan';
 import { createProfile } from './profile';
 import { suraStartLine } from './quran';
@@ -56,5 +56,17 @@ describe('Lernpläne', () => {
     p = archivePlan(p, pl.id);
     expect(p.bestand).toContain(604);
     expect(effectiveBestand(p, '2026-11-06').has(604)).toBe(true);
+  });
+});
+
+describe('Bereich eines Plans', () => {
+  it('erkennt die Suren eines Plans wieder, auch wenn Nachbar-Suren auf denselben Seiten stehen', () => {
+    // al-ʿAnkabūt beginnt auf S. 396 (dort endet al-Qaṣaṣ) und endet auf S. 404 (dort beginnt ar-Rūm)
+    expect(planSuras('1405', suraRange('1405', 29, 29))).toEqual([29, 29]);
+    expect(planSuras('1405', suraRange('1405', 78, 114))).toEqual([78, 114]);
+  });
+
+  it('ein Plan über ganze Seiten ist kein Suren-Bereich', () => {
+    expect(planSuras('1405', pageRange('1405', 397, 399))).toBeNull();
   });
 });

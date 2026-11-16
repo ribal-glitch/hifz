@@ -88,10 +88,7 @@ export function App() {
         <div className={`app${audio.state ? ' has-player' : ''}${reading && active === 0 ? ' reading' : ''}`}>
           <header className="topbar">
             <h1>{SLIDES[active]?.label}</h1>
-            <button type="button" className="iconbtn" aria-label="Einstellungen" onClick={() => setSettings(true)}>
-              <Icon name="settings" />
-            </button>
-            <button type="button" className="avatar-btn" onClick={() => setSettings(true)} aria-label={`Profil ${profile.name}`}>
+            <button type="button" className="avatar-btn" onClick={() => setSettings(true)} aria-label="Einstellungen">
               <Avatar name={profile.name} color={profile.color} size={38} />
             </button>
           </header>

@@ -33,7 +33,8 @@ export function Icon({
     | 'edit'
     | 'close'
     | 'quiz'
-    | 'trash';
+    | 'trash'
+    | 'hint';
 }) {
   const p = {
     fill: 'none',
@@ -230,6 +231,14 @@ export function Icon({
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4.5 7h15M9.5 7V5h5v2M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5" {...p} />
+        </svg>
+      );
+    case 'hint':
+      // Wortanfang sichtbar, der Rest verdeckt
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 8h5M4 16h5" {...p} strokeWidth={2.6} />
+          <path d="M13 8h7M13 16h7" {...p} strokeDasharray="0.5 3.6" strokeWidth={2.6} />
         </svg>
       );
     case 'chevron':

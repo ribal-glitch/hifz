@@ -23,6 +23,8 @@ import { Icon, Seg, Sheet, Switch } from '../ui';
 import { TAJWEED_LEGEND, tajweedAyah, type Piece } from '../logic/tajweed';
 import { TRANSLATIONS, useTranslation, type TranslationId } from '../data/translations';
 import { suraStatus } from '../logic/stats';
+import { learnTasks } from '../logic/plan';
+import { logicalToday } from '../logic/dates';
 import type { ReadTarget } from './Today';
 
 
@@ -65,7 +67,7 @@ export function Read({
   const data = useMushafData(ed);
   // Ohne Sprungziel: zuletzt gelesene Seite, sonst die Dars-Seite bzw. der Anfang des Bestands
   const [page, setPageState] = useState(
-    () => target?.page || (profile && (readLastPage(profile.id) || (profile.dars.enabled ? profile.dars.page : profile.bestand[0]))) || 1,
+    () => target?.page || (profile && (readLastPage(profile.id) || learnTasks(profile, logicalToday())[0]?.week[0]?.page || profile.bestand[0])) || 1,
   );
   const [hl, setHl] = useState<{ from?: number; to?: number; start?: number } | null>(null);
   const [hifz, setHifz] = useState(false);
@@ -358,7 +360,8 @@ export function Read({
           <div className="sura-title">
             <h2>{title}</h2>
             <div>
-              {single ? `Ayah ${a1 === a2 ? a1 : `${a1}–${a2}`}` : pageRangeLabel(ed, page)} · S. {page} · Juz {juz}
+              S. {page} · Juz {juz}
+              {single ? ` · Ayah ${a1 === a2 ? a1 : `${a1}–${a2}`}` : ''}
             </div>
           </div>
           {single && <span className="sura-ar">{SURAS[suras[0] - 1].ar}</span>}
@@ -550,7 +553,7 @@ export function Read({
               title="Anfang und Ende zeigen"
               onClick={() => setHint(hint === 'ayah' ? 'lines' : 'ayah')}
             >
-              <Icon name="tajweed" />
+              <Icon name="hint" />
             </button>
             <button type="button" className="btn primary" aria-label="Nächste Ayah" onClick={revealNext} disabled={revealed >= coverable.length}>
               <Icon name="reveal" />
@@ -736,14 +739,14 @@ function ListenSheet({
           </div>
         </div>
         <div>
-          <label className="lbl">Nachsprech-Pause nach jeder Ayah</label>
+          <label className="lbl">Pause zum Nachsprechen (so lang wie die Ayah)</label>
           <Seg<string>
             label="Nachsprech-Pause"
             value={profile.echoPause ? 'an' : 'aus'}
             onChange={(v) => update((p) => ({ ...p, echoPause: v === 'an' }))}
             options={[
               { value: 'aus', label: 'Aus' },
-              { value: 'an', label: 'An – so lang wie die Ayah' },
+              { value: 'an', label: 'An' },
             ]}
           />
         </div>

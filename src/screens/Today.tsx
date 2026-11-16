@@ -133,6 +133,9 @@ export function Today() {
   const muraja = day?.muraja;
   const st = streak(profile, today);
   const hasBestand = effectiveBestand(profile, today).size > 0;
+  // Fortschritt des Tages: frische Seiten und Murājaʿa zusammen
+  const allPages = [...new Set([...fresh, ...(muraja ? [...muraja.pages, ...muraja.extra] : [])])];
+  const doneN = allPages.filter((p) => day?.ratings[p] || day?.freshDone.includes(p)).length;
   let stepNo = 0;
   const toggleOpen = (k: string) => setOpenPage((cur) => (cur === k ? null : k));
 
@@ -140,13 +143,18 @@ export function Today() {
     <div>
       <header className="today-head">
         <div className="date">{formatLong(today)}</div>
-        <div className="status">{cards.length === 0 ? 'Noch nichts geplant' : partDone ? 'Wiederholung geschafft' : 'Wiederholen'}</div>
+        <div className="status">{cards.length === 0 ? 'Noch nichts geplant' : partDone ? 'Alles wiederholt' : `${doneN} von ${allPages.length} Seiten`}</div>
+        {cards.length > 0 && (
+          <div className="day-bar" role="progressbar" aria-valuemin={0} aria-valuemax={allPages.length} aria-valuenow={doneN} aria-label="Heute wiederholt">
+            <i style={{ width: `${allPages.length ? (doneN / allPages.length) * 100 : 0}%` }} />
+          </div>
+        )}
         {st > 0 && <div className="streak">🔥 {st}</div>}
       </header>
 
-      {partDone && (
+      {partDone && day?.complete && (
         <div className="done-line pop" role="status">
-          <Icon name="check" /> {day?.complete ? 'Bārak Allāhu fīk.' : 'Wiederholung geschafft.'}
+          <Icon name="check" /> Bārak Allāhu fīk.
         </div>
       )}
 
@@ -267,14 +275,28 @@ function QuizButtons() {
   return (
     <section className="quiz-launch">
       <h2 className="section-title">Prüfen</h2>
-      <div className="quiz-cards">
-        <button type="button" className="quiz-card" onClick={nextMini}>
-          <Icon name="quiz" />
-          <b>Mini-Prüfung</b>
+      <div className="quiz-list">
+        <button type="button" className="quiz-row" onClick={nextMini}>
+          <span className="quiz-ico sky" aria-hidden="true">
+            <Icon name="quiz" />
+          </span>
+          <span className="quiz-text">
+            <b>Mini-Prüfung</b>
+            <small>Eine Stelle aus deinem Bestand</small>
+          </span>
+          <span className="quiz-go" aria-hidden="true">
+            <Icon name="prev" />
+          </span>
         </button>
-        <div className="quiz-card juz">
-          <Icon name="list" />
-          <b>Juz-Quiz</b>
+        <div className="quiz-row wrap">
+          <span className="quiz-ico ok" aria-hidden="true">
+            <Icon name="list" />
+          </span>
+          <span className="quiz-text">
+            <b>Juz-Quiz</b>
+            <small>10 Stellen aus einem Juz</small>
+          </span>
+          <span className="quiz-controls">
           <select className="field" aria-label="Juz" value={juz} onChange={(e) => setJuz(Number(e.target.value))}>
             {Array.from({ length: JUZ_COUNT }, (_, i) => i + 1).map((j) => (
               <option key={j} value={j}>
@@ -283,9 +305,10 @@ function QuizButtons() {
               </option>
             ))}
           </select>
-          <button type="button" className="btn primary block" onClick={() => setQuiz({ kind: 'juz', items: juzQuestions(profile, juz, 10) })}>
+          <button type="button" className="btn primary" onClick={() => setQuiz({ kind: 'juz', items: juzQuestions(profile, juz, 10) })}>
             Start
           </button>
+          </span>
         </div>
       </div>
       {quiz && (

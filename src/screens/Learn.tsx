@@ -9,6 +9,7 @@ import {
   pageRange,
   planFinished,
   planProgress,
+  planSuras,
   planTask,
   planTitle,
   setPlanPace,
@@ -264,9 +265,13 @@ function PlanForm({ plan, onDone }: { plan?: LearnPlan; onDone: () => void }) {
     const st = profile ? suraStatus(profile, today) : [];
     return [...st].reverse().find((x) => x.state !== 'auswendig')?.sura ?? 114;
   };
-  const [by, setBy] = useState<'sura' | 'pages'>('sura');
-  const [s1, setS1] = useState(() => (plan ? suraAt(ed, plan.fromPage) : suggest()));
-  const [s2, setS2] = useState(() => (plan ? suraAt(ed, plan.toPage, true) : suggest()));
+  // bestehender Plan: genau die Suren, die er umfasst; sonst nach Seiten
+  const exact = plan ? planSuras(ed, plan) : null;
+  const [by, setBy] = useState<'sura' | 'pages'>(plan && !exact ? 'pages' : 'sura');
+  const [s1, setS1] = useState(() => (plan ? (exact?.[0] ?? suraAt(ed, plan.fromPage)) : suggest()));
+  const [s2, setS2] = useState(() => (plan ? (exact?.[1] ?? suraAt(ed, plan.toPage, true)) : suggest()));
+  /** Bereich angefasst? Sonst bleibt er beim Speichern genau wie er war (auch mitten auf einer Seite). */
+  const [rangeTouched, setRangeTouched] = useState(false);
   const [p1, setP1] = useState(plan?.fromPage ?? 1);
   const [p2, setP2] = useState(plan?.toPage ?? 1);
   const [perWeek, setPerWeek] = useState(plan?.perWeek ?? 1);
@@ -277,14 +282,17 @@ function PlanForm({ plan, onDone }: { plan?: LearnPlan; onDone: () => void }) {
   if (!profile) return null;
 
   const save = () => {
-    const range = by === 'sura' ? suraRange(ed, s1, s2) : pageRange(ed, p1, p2);
+    const picked = by === 'sura' ? suraRange(ed, s1, s2) : pageRange(ed, p1, p2);
+    const range = plan && !rangeTouched ? { fromPage: plan.fromPage, fromLine: plan.fromLine, toPage: plan.toPage, toLine: plan.toLine } : picked;
     if (!plan) {
       update((p) => upsertPlan(p, newPlan(range, perWeek, wd, today)));
     } else {
       let next: LearnPlan = { ...plan, ...range };
       if (wd !== plan.weekday) next = setPlanWeekday(next, today, wd);
       if (perWeek !== plan.perWeek) next = setPlanPace(ed, next, today, perWeek);
-      next = setPlanPage(ed, next, today, page);
+      // „Diese Woche dran“ nur verschieben, wenn es geändert wurde oder nicht mehr im Bereich liegt
+      if (rangeTouched || page !== current)
+        next = setPlanPage(ed, next, today, Math.max(range.fromPage, Math.min(range.toPage + 1, page)));
       update((p) => upsertPlan(p, next));
     }
     onDone();
@@ -305,7 +313,10 @@ function PlanForm({ plan, onDone }: { plan?: LearnPlan; onDone: () => void }) {
       <Seg<'sura' | 'pages'>
         label="Bereich nach"
         value={by}
-        onChange={setBy}
+        onChange={(v) => {
+          setBy(v);
+          setRangeTouched(true);
+        }}
         options={[
           { value: 'sura', label: 'Suren' },
           { value: 'pages', label: 'Seiten' },
@@ -319,6 +330,7 @@ function PlanForm({ plan, onDone }: { plan?: LearnPlan; onDone: () => void }) {
             </label>
             {suraSelect('plan-s1', s1, (n) => {
               setS1(n);
+              setRangeTouched(true);
               if (n > s2) setS2(n);
             })}
           </div>
@@ -328,6 +340,7 @@ function PlanForm({ plan, onDone }: { plan?: LearnPlan; onDone: () => void }) {
             </label>
             {suraSelect('plan-s2', s2, (n) => {
               setS2(n);
+              setRangeTouched(true);
               if (n < s1) setS1(n);
             })}
           </div>
@@ -336,11 +349,11 @@ function PlanForm({ plan, onDone }: { plan?: LearnPlan; onDone: () => void }) {
         <div className="range-row">
           <div>
             <label className="lbl">Von Seite</label>
-            <Stepper value={p1} min={1} max={PAGE_COUNT} label="Von Seite" onChange={(v) => (setP1(v), v > p2 && setP2(v))} />
+            <Stepper value={p1} min={1} max={PAGE_COUNT} label="Von Seite" onChange={(v) => (setP1(v), setRangeTouched(true), v > p2 && setP2(v))} />
           </div>
           <div>
             <label className="lbl">Bis Seite</label>
-            <Stepper value={p2} min={1} max={PAGE_COUNT} label="Bis Seite" onChange={(v) => (setP2(v), v < p1 && setP1(v))} />
+            <Stepper value={p2} min={1} max={PAGE_COUNT} label="Bis Seite" onChange={(v) => (setP2(v), setRangeTouched(true), v < p1 && setP1(v))} />
           </div>
         </div>
       )}

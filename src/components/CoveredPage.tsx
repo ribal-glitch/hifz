@@ -77,6 +77,16 @@ export function CoveredPage({
     });
   }, []);
 
+  // Markierte Zeilen (heutige Portion) gleich in den Blick holen
+  const hlFrom = hl?.[0];
+  const loaded = !!data && data !== 'error';
+  useEffect(() => {
+    if (!loaded || !hlFrom || hlFrom < 4) return;
+    const el = box.current?.querySelector('.mline.hl');
+    const id = window.setTimeout(() => el?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 120);
+    return () => window.clearTimeout(id);
+  }, [loaded, hlFrom, fontReady]);
+
   if (data === null) return <div className="mushaf inline empty">Seite wird geladen …</div>;
   if (data === 'error') return <div className="mushaf inline empty">Die Quran-Daten konnten nicht geladen werden.</div>;
   const lines = data.layout.pages[page - 1];
@@ -183,7 +193,7 @@ export function CoveredPage({
               title="Erstes Wort zeigen"
               onClick={() => setFirstWord(!firstWord)}
             >
-              <Icon name="tajweed" />
+              <Icon name="hint" />
             </button>
             <button type="button" className="btn primary" aria-label="Nächste Ayah" onClick={next} disabled={done}>
               <Icon name="reveal" />

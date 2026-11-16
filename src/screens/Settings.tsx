@@ -48,7 +48,7 @@ export function Settings() {
             onBlur={() => update((p) => ({ ...p, name: p.name.trim() || 'Ohne Namen' }))}
           />
         </div>
-        <div className="chips-row" role="group" aria-label="Farbe des Avatars">
+        <div className="color-row" role="group" aria-label="Farbe des Avatars">
           {AVATAR_COLORS.map((c) => (
             <button
               key={c}
@@ -56,7 +56,7 @@ export function Settings() {
               aria-label={`Farbe ${c}`}
               aria-pressed={profile.color === c}
               onClick={() => update((p) => ({ ...p, color: c }))}
-              style={{ background: c, borderColor: profile.color === c ? 'var(--text)' : c, minWidth: 48, borderWidth: 3 }}
+              style={{ background: c }}
             />
           ))}
         </div>

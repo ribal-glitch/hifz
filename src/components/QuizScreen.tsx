@@ -166,7 +166,7 @@ export function QuizScreen({
             {body}
           </div>
           <div className="quiz-actions">
-            <button type="button" className="qbtn" aria-label="Nächste Ayah aufdecken" onClick={() => setRevealed((r) => r + 1)}>
+            <button type="button" className="qbtn" aria-label="Nächste Ayah aufdecken" onClick={() => setRevealed((r) => Math.min(r + 1, 99))}>
               <Icon name="reveal" />
             </button>
             <button type="button" className="qbtn" aria-label="Alles aufdecken" onClick={() => setShowAll(true)}>

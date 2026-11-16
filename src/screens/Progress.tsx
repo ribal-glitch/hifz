@@ -173,7 +173,7 @@ export function ProgressTab({ onOpen, active }: { onOpen: (t: ReadTarget) => voi
           voll
         </span>
         <span>
-          <i style={{ borderColor: 'var(--ok)', background: 'var(--ok-soft)' }} />
+          <i style={{ borderColor: 'var(--ok)', background: 'linear-gradient(to top, var(--ok-soft) 50%, transparent 50%)' }} />
           teilweise
         </span>
         <span>

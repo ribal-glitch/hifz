@@ -167,6 +167,13 @@ export function suraRange(ed: EditionId, a: number, b: number): Pick<LearnPlan, 
   return { fromPage: suraPages(ed, s1)[0], fromLine: suraStartLine(ed, s1), toPage: suraPages(ed, s2)[1], toLine: suraEndLine(ed, s2) };
 }
 
+/** Die Suren, die ein Plan genau umfasst (vom Kopf der ersten bis zum Ende der letzten); sonst null. */
+export function planSuras(ed: EditionId, plan: Pick<LearnPlan, 'fromPage' | 'fromLine' | 'toPage' | 'toLine'>): [number, number] | null {
+  const s1 = SURAS.find((s) => suraPages(ed, s.n)[0] === plan.fromPage && suraStartLine(ed, s.n) === plan.fromLine);
+  const s2 = SURAS.find((s) => suraPages(ed, s.n)[1] === plan.toPage && suraEndLine(ed, s.n) === plan.toLine);
+  return s1 && s2 && s1.n <= s2.n ? [s1.n, s2.n] : null;
+}
+
 /** Bereich von Seite a bis Seite b (ganze Seiten). */
 export function pageRange(ed: EditionId, a: number, b: number): Pick<LearnPlan, 'fromPage' | 'fromLine' | 'toPage' | 'toLine'> {
   const [p1, p2] = a <= b ? [a, b] : [b, a];

@@ -3495,3 +3495,181 @@ html.guest .toast {
 html.guest .who {
   padding-bottom: 110px;
 }
+
+
+/* ---------- Feinschliff ---------- */
+
+/* Auswahl-Pillen teilen sich die Zeile gleichmäßig: keine einzelne Pille in der zweiten Zeile */
+.chips-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(38px, 1fr));
+}
+
+.chips-row button {
+  min-width: 0;
+  padding: 0 4px;
+}
+
+.color-row {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+}
+
+.color-row button {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.color-row button[aria-pressed='true'] {
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--text);
+}
+
+/* Kopf von „Wiederholen“: Serie rechts neben dem Datum, Tagesfortschritt als Balken */
+.today-head {
+  position: relative;
+}
+
+.today-head .streak {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+}
+
+.day-bar {
+  height: 6px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.day-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ok);
+  transition: width 0.35s ease-out;
+}
+
+/* Prüfen: zwei ruhige Zeilen statt zweier ungleich hoher Kacheln */
+.quiz-list {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.quiz-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.quiz-row + .quiz-row {
+  border-top: 1px solid var(--rule);
+}
+
+button.quiz-row:active {
+  background: var(--surface-2);
+}
+
+.quiz-ico {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+}
+
+.quiz-ico svg {
+  width: 24px;
+  height: 24px;
+}
+
+.quiz-ico.sky {
+  background: var(--sky-soft);
+  color: var(--sky);
+}
+
+.quiz-ico.ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.quiz-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.quiz-text b {
+  display: block;
+  font-size: 17px;
+}
+
+.quiz-text small {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quiz-go {
+  color: var(--faint);
+  display: grid;
+}
+
+.quiz-go svg {
+  width: 20px;
+  height: 20px;
+}
+
+.quiz-row .field {
+  flex: none;
+  width: auto;
+  min-height: 44px;
+  padding-left: 12px;
+  font-size: 16px;
+}
+
+.quiz-row .btn {
+  flex: none;
+  min-height: 44px;
+  padding: 0 16px;
+}
+
+.quiz-row.wrap {
+  flex-wrap: wrap;
+}
+
+.quiz-controls {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding-left: 56px;
+}
+
+.quiz-controls .field {
+  flex: 1;
+}
